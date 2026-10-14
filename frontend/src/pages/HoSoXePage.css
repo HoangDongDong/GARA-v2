@@ -1,0 +1,1271 @@
+/* ===== HỒ SƠ XE PAGE STYLES & RESPONSIVE ===== */
+
+@keyframes hsx-radar-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(34, 197, 94, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+  }
+}
+
+@keyframes hsx-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.hsx-vehicle-card {
+  background: #FFFFFF;
+  border-radius: 8px;
+  border: 1px solid #E2E8F0;
+  padding: 8px 12px;
+  display: flex;
+  gap: 14px;
+  flex-shrink: 0;
+  align-items: center;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  transition: all 0.25s ease;
+  position: relative;
+}
+
+.hsx-vehicle-card:hover {
+  border-color: #CBD5E1;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+}
+
+/* Trên Desktop: hsx-mobile-top-block dùng display: contents để các cột con hiển thị trực tiếp theo 3 cột ngang */
+.hsx-mobile-top-block {
+  display: contents;
+}
+
+.hsx-media-col {
+  width: 130px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hsx-main-avatar {
+  width: 100%;
+  height: 72px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #F1F5F9;
+  border: 1px solid #E2E8F0;
+  position: relative;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.hsx-main-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.hsx-main-avatar:hover img {
+  transform: scale(1.06);
+}
+
+.hsx-thumbnails-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 3px;
+}
+
+.hsx-thumbnails-row img {
+  width: 100%;
+  height: 20px;
+  object-fit: cover;
+  border-radius: 3px;
+  border: 1px solid #E2E8F0;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.hsx-thumbnails-row img:hover {
+  border-color: #E65100;
+  transform: translateY(-1px);
+}
+
+.hsx-specs-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hsx-model-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: #0F172A;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  letter-spacing: 0.3px;
+}
+
+.hsx-model-icon-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  background: linear-gradient(135deg, #1E40AF 0%, #3B82F6 100%);
+  color: #FFFFFF;
+  box-shadow: 0 2px 5px rgba(37, 99, 235, 0.25);
+  flex-shrink: 0;
+}
+
+.hsx-plate-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 1px 0;
+  flex-wrap: wrap;
+}
+
+.hsx-plate-badge {
+  font-size: 13px;
+  font-weight: 800;
+  color: #1E3A8A;
+  border: 1.5px solid #93C5FD;
+  padding: 1px 8px;
+  border-radius: 5px;
+  letter-spacing: 0.8px;
+  background: linear-gradient(180deg, #FFFFFF 0%, #EFF6FF 100%);
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s ease;
+}
+
+.hsx-plate-badge:hover {
+  border-color: #3B82F6;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.18);
+  transform: translateY(-1px);
+}
+
+.hsx-plate-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #3B82F6;
+  opacity: 0.8;
+}
+
+.hsx-status-registered {
+  background: linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%);
+  color: #065F46;
+  border: 1px solid #A7F3D0;
+  padding: 1.5px 8px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  box-shadow: 0 1px 2px rgba(16, 185, 129, 0.1);
+}
+
+.hsx-mobile-owner-summary {
+  display: none;
+}
+
+.hsx-vin-row {
+  display: flex;
+  gap: 10px;
+  font-size: 10.5px;
+  color: #475569;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.hsx-vin-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  padding: 2px 8px;
+  border-radius: 5px;
+  transition: all 0.2s ease;
+}
+
+.hsx-vin-pill:hover {
+  background: #F1F5F9;
+  border-color: #CBD5E1;
+}
+
+.hsx-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 3px;
+  color: #2563EB;
+  transition: all 0.15s ease;
+}
+
+.hsx-copy-btn:hover {
+  background: #DBEAFE;
+  transform: scale(1.15);
+}
+
+.hsx-specs-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 5px;
+  border-top: 1px dashed #E2E8F0;
+  padding-top: 5px;
+  font-size: 10.5px;
+}
+
+.hsx-spec-item {
+  background: #F8FAFC;
+  border: 1px solid #EDF2F7;
+  border-radius: 6px;
+  padding: 3px 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  min-width: 0;
+}
+
+.hsx-spec-item:hover {
+  background: #FFFFFF;
+  border-color: #CBD5E1;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  transform: translateY(-1.5px);
+}
+
+.hsx-spec-icon-box {
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.hsx-spec-texts {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.hsx-spec-texts .spec-label {
+  color: #64748B;
+  font-size: 9.5px;
+  line-height: 1.1;
+  font-weight: 500;
+}
+
+.hsx-spec-texts .spec-value {
+  font-weight: 700;
+  color: #1E293B;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 10.5px;
+  line-height: 1.2;
+}
+
+.hsx-owner-col {
+  width: 185px;
+  border-left: 1px solid #E2E8F0;
+  padding-left: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.hsx-status-live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.hsx-status-live-badge .hsx-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #22C55E;
+  display: inline-block;
+  animation: hsx-radar-pulse 1.8s infinite;
+}
+
+.hsx-owner-info-line {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  line-height: 1.35;
+  color: #475569;
+}
+
+.hsx-owner-info-line .hsx-owner-icon {
+  flex-shrink: 0;
+  color: #64748B;
+}
+
+/* Tabs bar */
+.hsx-tabs-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  flex-shrink: 0;
+  background: #F8FAFC;
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: 1px solid #E2E8F0;
+}
+
+.hsx-tabs-scroll {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  white-space: nowrap;
+  flex: 1 1 auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.hsx-tabs-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.hsx-tab-actions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-shrink: 0;
+}
+/* Base classes for main content and responsive tables */
+.hsx-main-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(4px, 0.6vh, 6px);
+  width: 100%;
+}
+
+/* 2-Column Split Layout on Desktop */
+.hsx-two-col-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 390px;
+  gap: 8px;
+  width: 100%;
+  align-items: start;
+}
+
+.hsx-col-main {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.hsx-col-side {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.hsx-cards-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Modern Card Design */
+.hsx-modern-card {
+  background: #FFFFFF;
+  border-radius: 8px;
+  border: 1px solid #E2E8F0;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04);
+  transition: all 0.25s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.hsx-modern-card:hover {
+  border-color: #CBD5E1;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1.5px);
+}
+
+.hsx-modern-card-header {
+  padding: 5px 10px;
+  background: linear-gradient(180deg, #F8FAFC 0%, #F1F5F9 100%);
+  border-bottom: 1px solid #E2E8F0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.hsx-header-title-group {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.hsx-header-icon-box {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  color: #FFFFFF;
+}
+
+.hsx-header-title {
+  font-weight: 700;
+  font-size: 11.5px;
+  color: #0F172A;
+  letter-spacing: 0.2px;
+}
+
+.hsx-header-tag {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1.5px 7px;
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.hsx-modern-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10.5px;
+}
+
+.hsx-modern-table tr {
+  border-bottom: 1px solid #F1F5F9;
+  transition: background-color 0.15s ease;
+}
+
+.hsx-modern-table tr:last-child {
+  border-bottom: none;
+}
+
+.hsx-modern-table tr:hover {
+  background-color: #F8FAFC;
+}
+
+.hsx-label-cell {
+  padding: 4px 8px;
+  color: #64748B;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.hsx-label-icon {
+  width: 17px;
+  height: 17px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.hsx-value-cell {
+  padding: 4px 8px;
+  font-weight: 600;
+  color: #1E293B;
+}
+
+.hsx-color-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1px solid #CBD5E1;
+  display: inline-block;
+  margin-right: 5px;
+  vertical-align: middle;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.hsx-odo-badge {
+  background: #FFF7ED;
+  color: #C2410C;
+  border: 1px solid #FFEDD5;
+  padding: 1.5px 7px;
+  border-radius: 4px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Timeline in Lịch sử chủ xe */
+.hsx-timeline-container {
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 10.5px;
+  position: relative;
+}
+
+.hsx-timeline-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+  padding: 4px 6px;
+  border-radius: 5px;
+  transition: all 0.15s ease;
+}
+
+.hsx-timeline-row:hover {
+  background: #F8FAFC;
+}
+
+.hsx-timeline-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.hsx-timeline-dot-active {
+  background: #10B981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25);
+  animation: hsx-radar-pulse 2s infinite;
+}
+
+.hsx-timeline-dot-past {
+  background: #94A3B8;
+  border: 2px solid #E2E8F0;
+}
+
+.hsx-timeline-period {
+  font-weight: 600;
+  padding: 1.5px 7px;
+  border-radius: 10px;
+  font-size: 9.5px;
+  flex-shrink: 0;
+  min-width: 95px;
+  text-align: center;
+}
+
+.hsx-timeline-period.active {
+  background: #ECFDF5;
+  color: #065F46;
+  border: 1px solid #A7F3D0;
+}
+
+.hsx-timeline-period.past {
+  background: #F1F5F9;
+  color: #64748B;
+  border: 1px solid #E2E8F0;
+}
+
+.hsx-timeline-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+
+.hsx-timeline-name.active {
+  color: #1E40AF;
+  font-weight: 700;
+}
+
+.hsx-timeline-name.past {
+  color: #475569;
+  font-weight: 500;
+}
+
+/* Side Column Cards */
+.hsx-side-card {
+  background: #FFFFFF;
+  border-radius: 6px;
+  border: 1px solid #E0E0E0;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.hsx-side-card-header {
+  padding: 4px 8px;
+  border-bottom: 1px solid #E2E8F0;
+  background: #FAFAFA;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.hsx-side-card-title {
+  font-weight: 700;
+  font-size: 11px;
+  color: #1E293B;
+}
+
+.hsx-side-btn-outline {
+  font-size: 10px;
+  color: #E65100;
+  border: 1px solid #FFCC80;
+  background: #FFF3E0;
+  padding: 1px 7px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.15s ease;
+}
+
+.hsx-side-btn-outline:hover {
+  background: #FFE0B2;
+}
+
+/* Side Gallery */
+.hsx-side-gallery {
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hsx-gallery-row-top {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+}
+
+.hsx-gallery-row-bottom {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+
+.hsx-gallery-thumb {
+  position: relative;
+  border-radius: 4px;
+  overflow: hidden;
+  height: 52px;
+  background: #F1F5F9;
+  border: 1px solid #E2E8F0;
+  transition: transform 0.15s;
+}
+
+.hsx-gallery-thumb:hover {
+  transform: scale(1.02);
+  border-color: #E65100;
+}
+
+.hsx-gallery-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.hsx-gallery-thumb span {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(15, 23, 42, 0.72);
+  color: #fff;
+  font-size: 8px;
+  padding: 1px 2px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  backdrop-filter: blur(2px);
+}
+
+/* Side Appointments Table */
+.hsx-side-table-wrap {
+  overflow-x: auto;
+  max-height: 110px;
+}
+
+.hsx-side-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10px;
+}
+
+.hsx-side-table th {
+  background: #FFF3E0;
+  color: #BF360C;
+  padding: 3px 6px;
+  text-align: left;
+  font-weight: 700;
+  font-size: 9.5px;
+  border-bottom: 1px solid #FFE0B2;
+}
+
+.hsx-side-table td {
+  padding: 3px 6px;
+  border-bottom: 1px solid #F1F5F9;
+}
+
+/* Side Notes List */
+.hsx-side-notes-list {
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-height: 105px;
+  overflow-y: auto;
+}
+
+.hsx-side-note-item {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 4px;
+  padding: 4px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Side Action Buttons */
+.hsx-side-actions {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  align-items: center;
+  margin-top: 2px;
+}
+
+.hsx-side-action-btn {
+  height: 28px;
+  padding: 0 4px;
+  background: #FFFFFF;
+  color: #334155;
+  border: 1px solid #CBD5E1;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.hsx-side-action-btn:hover {
+  background: #F8FAFC;
+  border-color: #94A3B8;
+}
+
+.hsx-side-action-btn-primary {
+  height: 28px;
+  padding: 0 4px;
+  background: #E65100;
+  color: #FFFFFF;
+  border: 1px solid #E65100;
+  border-radius: 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 1px 3px rgba(230, 81, 0, 0.3);
+  transition: all 0.15s ease;
+}
+
+.hsx-side-action-btn-primary:hover {
+  background: #D84315;
+}
+
+.hsx-table-responsive {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+}
+
+.hsx-quick-chips-scroll {
+  display: flex;
+  gap: 4px;
+  flex: 1 1 auto;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Side Overview Card (Điền đầy khoảng trống cột phải) */
+.hsx-side-overview-card {
+  background: #FFFFFF;
+  border-radius: 8px;
+  border: 1px solid #E2E8F0;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04);
+  transition: all 0.25s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.hsx-side-overview-card:hover {
+  border-color: #CBD5E1;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+}
+
+.hsx-overview-body {
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hsx-overview-kpi-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.hsx-ov-kpi-box {
+  background: #F8FAFC;
+  border: 1px solid #EDF2F7;
+  border-radius: 6px;
+  padding: 6px 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+.hsx-ov-kpi-box:hover {
+  background: #FFFFFF;
+  border-color: #CBD5E1;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  transform: translateY(-1px);
+}
+
+.hsx-ov-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.hsx-ov-content {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.hsx-ov-label {
+  font-size: 8.5px;
+  color: #64748B;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  line-height: 1.1;
+}
+
+.hsx-ov-val {
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #0F172A;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.hsx-ov-val small {
+  font-size: 9px;
+  font-weight: 600;
+  color: #64748B;
+}
+
+/* Service Progress Bar */
+.hsx-ov-progress-block {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 6px;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hsx-ov-progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 10px;
+}
+
+.hsx-ov-progress-title {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 600;
+  color: #334155;
+  font-size: 10px;
+}
+
+.hsx-ov-progress-tag {
+  font-weight: 700;
+  color: #059669;
+  font-size: 9.5px;
+}
+
+.hsx-progress-bar-bg {
+  width: 100%;
+  height: 6px;
+  background: #E2E8F0;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.hsx-progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #10B981 0%, #3B82F6 100%);
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+.hsx-ov-progress-footer {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  color: #64748B;
+}
+
+/* Overview Info Rows */
+.hsx-ov-info-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-top: 1px dashed #E2E8F0;
+  padding-top: 6px;
+}
+
+.hsx-ov-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 10px;
+  padding: 2px 0;
+}
+
+.hsx-ov-info-key {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #64748B;
+  font-weight: 500;
+}
+
+.hsx-ov-info-val {
+  font-weight: 600;
+  color: #1E293B;
+  text-align: right;
+}
+
+@media (max-width: 1024px) {
+  .hsx-two-col-layout {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ===== TỐI ƯU GIAO DIỆN HỒ SƠ XE TRÊN MOBILE (<= 768px) ===== */
+@media (max-width: 768px) {
+  /* Page container cho phép cuộn tự nhiên theo app-content, không đệm thừa */
+  .hsx-page-container {
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    overflow-y: visible !important;
+    padding-bottom: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+  }
+
+  /* Vùng nội dung chính mở rộng chiều cao tự nhiên theo nội dung */
+  .hsx-main-content {
+    overflow: visible !important;
+    overflow-y: visible !important;
+    height: auto !important;
+    min-height: auto !important;
+    flex: none !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    margin-bottom: 0 !important;
+    width: 100% !important;
+  }
+
+  /* 4 Cards thông tin xe trên mobile xếp cột dọc 100% chiều rộng */
+  .hsx-cards-grid {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+
+  /* Card Lịch sử sửa chữa gần đây mở rộng chiều cao tự nhiên */
+  .hsx-recent-repairs-card {
+    flex: none !important;
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    width: 100% !important;
+  }
+
+  .hsx-recent-repairs-card .hsx-table-responsive {
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+
+  /* Toolbar tìm kiếm & nút trên cùng */
+  .hsx-header-bar {
+    gap: 6px !important;
+    min-height: auto !important;
+  }
+
+  .hsx-top-actions {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 6px !important;
+    width: 100% !important;
+    flex: none !important;
+    height: auto !important;
+  }
+
+  .hsx-search-wrap {
+    width: 100% !important;
+    flex: none !important;
+    height: auto !important;
+  }
+
+  .hsx-search-wrap input {
+    height: 30px !important;
+    font-size: 11.5px !important;
+  }
+
+  /* 4 nút tác vụ xếp lưới 2x2 gọn gàng, không bị tràn hoặc cắt chữ */
+  .hsx-btn-group {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 6px !important;
+    width: 100% !important;
+    overflow: visible !important;
+  }
+
+  .hsx-btn-group button {
+    width: 100% !important;
+    height: 32px !important;
+    justify-content: center !important;
+    font-size: 11px !important;
+    padding: 0 4px !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Dải chọn nhanh xe trên mobile */
+  .hsx-quick-selector-bar {
+    padding: 4px 6px !important;
+  }
+
+  .hsx-quick-chips-scroll {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+  }
+
+  .hsx-quick-chips-scroll::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  /* Card thông tin xe tổng quan trên mobile xếp theo hàng dọc thông thoáng */
+  .hsx-vehicle-card {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    padding: 10px !important;
+    gap: 8px !important;
+  }
+
+  .hsx-mobile-top-block {
+    display: flex !important;
+    gap: 10px !important;
+    align-items: flex-start !important;
+  }
+
+  .hsx-media-col {
+    width: 84px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .hsx-main-avatar {
+    width: 84px !important;
+    height: 64px !important;
+    border-radius: 6px !important;
+  }
+
+  .hsx-thumbnails-row {
+    display: none !important; /* Ẩn ảnh nhỏ trên điện thoại */
+  }
+
+  .hsx-specs-col {
+    flex: 1 !important;
+    min-width: 0 !important;
+    gap: 3px !important;
+  }
+
+  .hsx-model-title {
+    font-size: 13.5px !important;
+    line-height: 1.25 !important;
+  }
+
+  .hsx-plate-badge-row {
+    flex-wrap: wrap !important;
+    gap: 4px !important;
+  }
+
+  .hsx-mobile-owner-summary {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 2px !important;
+  }
+
+  .hsx-vin-row {
+    background: #F8FAFC !important;
+    padding: 6px 10px !important;
+    border-radius: 4px !important;
+    border: 1px solid #E2E8F0 !important;
+    gap: 8px !important;
+    font-size: 11px !important;
+    justify-content: space-between !important;
+  }
+
+  .hsx-specs-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 6px 8px !important;
+    padding-top: 6px !important;
+    border-top: 1px dashed #E2E8F0 !important;
+  }
+
+  /* Ẩn cột thứ 3 trên desktop vì đã đưa lên mobile-owner-summary */
+  .hsx-owner-col {
+    display: none !important;
+  }
+
+  /* TỐI ƯU THANH TABS TRÊN MOBILE: 
+     - Dải 6 Tabs trượt ngang 100% chiều rộng, có thanh chỉ báo cuộn rõ nét
+     - Nút In phiếu & Sửa đặt xuống hàng dưới chia đều 2 cột tiện chạm bấm */
+  .hsx-tabs-bar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    padding: 6px 8px !important;
+    gap: 6px !important;
+    background: #FFFFFF !important;
+    border: 1px solid #CBD5E1 !important;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.06) !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 10 !important;
+    margin-top: 4px !important;
+  }
+
+  .hsx-tabs-scroll {
+    width: 100% !important;
+    display: flex !important;
+    gap: 6px !important;
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+    padding-bottom: 5px !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: thin !important;
+  }
+
+  .hsx-tabs-scroll::-webkit-scrollbar {
+    display: block !important;
+    height: 3px !important;
+  }
+
+  .hsx-tabs-scroll::-webkit-scrollbar-thumb {
+    background: #E65100 !important;
+    border-radius: 3px !important;
+  }
+
+  .hsx-tab-btn {
+    padding: 6px 12px !important;
+    font-size: 11.5px !important;
+    border-radius: 6px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .hsx-tab-actions {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 6px !important;
+    width: 100% !important;
+    border-top: 1px dashed #E2E8F0 !important;
+    padding-top: 5px !important;
+  }
+
+  .hsx-tab-actions button {
+    height: 30px !important;
+    font-size: 11.5px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 4px !important;
+    width: 100% !important;
+  }
+
+  /* Bảng dữ liệu trong các tab cuộn ngang mượt mà */
+  .hsx-table-responsive {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    width: 100% !important;
+  }
+
+  .hsx-table-responsive table {
+    min-width: 520px !important;
+  }
+}
+
+.hsx-payment-button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; background: #e65100; color: white; border: 0; border-radius: 5px; padding: 7px 10px; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.hsx-ready-payment { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px; background: #fff7ed; border: 1px solid #fed7aa; border-radius: 7px; color: #9a3412; font-size: 12px; }
+.hsx-ready-payment small { display: block; margin-top: 5px; color: #64748b; font-size: 11px; }

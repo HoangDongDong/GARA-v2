@@ -1,0 +1,348 @@
+const branchSql=require('../branchSql');
+const express = require('express');
+const router = express.Router();
+const db = require('../db.js');
+const charges = require('../services/defaultChargeRates.js');
+const policy = require('../services/pricingPolicy.js');
+const repairQuotes = require('../services/repairQuotes.js');
+router.post('/:id/quote', async (req, res) => {
+  try {
+    require('../permissionPolicy.js').assert(req.accessUser, 'REPAIR', 17);
+    const quoteId = await db.transaction(async (query, execute, uuid) => {
+      await execute('UPDATE TLENHSUACHUA SET ID=ID WHERE ID=? AND STATUS=1', [req.params.id]);
+      return repairQuotes.ensure(query, execute, uuid, req.params.id, req.accessUser.ID);
+    });
+    res.json({ok:true,quoteId});
+  } catch (error) { res.status(error.status || 500).json({error:error.message}); }
+});
+router.use('/:id/supplements', require('./repairSupplements.js'));
+router.get('/charge-rates', async (req, res) => {
+  try { res.json({ data: { ...await charges.loadForRepairs(), ...await require('../services/paymentSettings.js').load('repair') } }); }
+  catch (error) { res.status(error.status || 500).json({ error: error.message }); }
+});
+
+/**
+ * GARAGE.FDB:
+ *  - TTIEPNHANXE: phieu tiep nhan (NGAY, DXEID, DKHACHHANGID,
+                  DNHANVIENCOOVANID, DNHANVIENKTVID, ODO, MUCNHIENLIEU,
+                  TINHTRANGXE, YEUCAUKHACH, PHUKIENDETRENKXE, TRANGTHAI)
+                  TRANGTHAI: 0=Moi, 1=Dang xu ly, 2=Hoan thanh, 3=Da giao xe
+ *
+ *  - TLENHSUACHUA: lenh SC (DXEID, DKHACHHANGID, TTIEPNHANXEID, TBAOGIAID,
+                    BATDAU, KETTHUC, TONGTIENCONG, TONGTIENPHUTUNG, TONGCONG,
+                    TRANGTHAI: 0=Moi, 1=Dang sua, 2=Tam dung, 3=Hoan thanh,
+                                4=QC, 5=Giao xe)
+ *
+ *  - TLENHSUACHUACHITIET: CT lenh (TLENHSUACHUAID, DMATHANGID, DDICHVUID,
+                           DDONVITINHID, SOLUONG, DONGIA, THANHTIEN,
+                           LOAI: 0=PT, 1=Cong)
+ */
+
+// ===== TTIEPNHANXE =====
+router.get('/tiep-nhan', async (req, res) => {
+  try {
+    const rows = await db.query(
+      `SELECT TN.ID, TN.NGAY, TN.ODO, TN.MUCNHIENLIEU, TN.TINHTRANGXE,
+              TN.YEUCAUKHACH, TN.PHUKIENDETRENKXE, TN.TRANGTHAI, TN.NAME,
+              TN.DXEID, V.BIENSO,
+              TN.DKHACHHANGID, KH.NAME AS TEN_KH, KH.DIENTHOAI,
+              TN.DNHANVIENCOOVANID, COV.NAME AS COVAN,
+              TN.DNHANVIENKTVID,    KTV.NAME AS KTVTN
+         FROM ${branchSql.table('TTIEPNHANXE')} TN
+         LEFT JOIN DXE          V   ON V.ID  = TN.DXEID
+         LEFT JOIN DKHACHHANG   KH  ON KH.ID = TN.DKHACHHANGID
+         LEFT JOIN ${branchSql.table('DNHANVIEN')}    COV ON COV.ID = TN.DNHANVIENCOOVANID
+         LEFT JOIN ${branchSql.table('DNHANVIEN')}    KTV ON KTV.ID = TN.DNHANVIENKTVID
+        WHERE TN.STATUS = 1
+     ORDER BY TN.NGAY DESC`
+    );
+    res.json({ data: rows });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/tiep-nhan', async (req, res) => {
+  try {
+    const {
+      NGAY, DXEID, DKHACHHANGID, DNHANVIENCOOVANID, DNHANVIENKTVID,
+      ODO, MUCNHIENLIEU, TINHTRANGXE, YEUCAUKHACH, PHUKIENDETRENKXE,
+    } = req.body;
+    if (!DXEID || !DKHACHHANGID) return res.status(400).json({ error: 'Phai chon xe va khach hang' });
+    const active = await db.query(`SELECT FIRST 1 ID FROM ${branchSql.table('TTRANGTHAIXE')} WHERE DXEID=? AND STATUS=1 AND TRANGTHAI<4`, [DXEID]);
+    if (active.length) return res.status(409).json({ error: 'Xe dang co quy trinh sua chua chua hoan thanh' });
+
+    const id = db.uuidv4();
+    const ma = await require('../services/documentNumbers.js').nextNumber('TiepNhan');
+    const actor = String(req.get('X-User') || 'SYSTEM').trim() || 'SYSTEM';
+    await db.execute(
+      `INSERT INTO TTIEPNHANXE
+         (ID, NAME, NGAY, DXEID, DKHACHHANGID, DNHANVIENCOOVANID, DNHANVIENKTVID,
+          ODO, MUCNHIENLIEU, TINHTRANGXE, YEUCAUKHACH, PHUKIENDETRENKXE,
+          TRANGTHAI, STATUS, USERCREATEDID, TIMECREATED)
+       VALUES (?, ?, COALESCE(?, CURRENT_TIMESTAMP), ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 1, ?, CURRENT_TIMESTAMP)`,
+      [
+        id, ma, NGAY, DXEID, DKHACHHANGID,
+        DNHANVIENCOOVANID || null, DNHANVIENKTVID || null,
+        ODO || 0, MUCNHIENLIEU || null, TINHTRANGXE, YEUCAUKHACH, PHUKIENDETRENKXE,
+        actor,
+      ]
+    );
+    res.json({ ok: true, id });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.patch('/tiep-nhan/:id/status', async (req, res) => {
+  try {
+    const { TRANGTHAI } = req.body;
+    await db.execute(
+      `UPDATE TTIEPNHANXE SET TRANGTHAI=?, USERMODIFIEDID=?, TIMEMODIFIED=CURRENT_TIMESTAMP
+       WHERE ID=?`,
+      [TRANGTHAI,req.accessUser.ID,req.params.id]
+    );
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ===== TLENHSUACHUA =====
+router.get('/:id/assignments', async (req, res) => {
+  try {
+    const data = await require('../services/repairCommissions.js').preview(db.query, req.params.id);
+    if (!require('../permissionPolicy.js').has(req.accessUser, 'COMMISSIONS')) {
+      data.total = null;
+      data.details = [];
+    }
+    res.json({ data });
+  }
+  catch (error) { res.status(error.statusCode || 500).json({ error: error.message }); }
+});
+router.get('/', async (req, res) => {
+  try {
+    const rows = await db.query(
+      `SELECT LS.ID, LS.NAME, LS.NGAY, LS.BATDAU, LS.KETTHUC,
+              LS.TONGTIENCONG, LS.TONGTIENPHUTUNG, LS.TONGCONG, LS.TRANGTHAI,
+              LS.DXEID, V.BIENSO,
+              LS.DKHACHHANGID, KH.NAME AS TEN_KH,
+              LS.TTIEPNHANXEID, TN.NAME AS SOPHIEUTN
+         FROM ${branchSql.table('TLENHSUACHUA')} LS
+         LEFT JOIN DXE        V  ON V.ID  = LS.DXEID
+         LEFT JOIN DKHACHHANG KH ON KH.ID = LS.DKHACHHANGID
+         LEFT JOIN ${branchSql.table('TTIEPNHANXE')} TN ON TN.ID = LS.TTIEPNHANXEID
+        WHERE LS.STATUS = 1
+     ORDER BY LS.NGAY DESC`
+    );
+    res.json({ data: rows });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/:id', async (req, res) => {
+  try {
+    const head = await db.query(
+      `SELECT LS.*, V.BIENSO, KH.NAME AS TEN_KH
+         FROM ${branchSql.table('TLENHSUACHUA')} LS
+         LEFT JOIN DXE        V  ON V.ID  = LS.DXEID
+         LEFT JOIN DKHACHHANG KH ON KH.ID = LS.DKHACHHANGID
+       WHERE LS.ID = ?`,
+      [req.params.id]
+    );
+    if (!head.length) return res.status(404).json({ error: 'Not found' });
+
+    const details = await db.query(
+      `SELECT CT.ID, CT.LOAI, CT.SOLUONG, CT.DONGIA, CT.THANHTIEN, CT.PHATSINHCTID, CT.NOTE,
+              CT.TILETHUE, CT.TIENTHUE, CT.TILEGIAMGIA, CT.TIENGIAMGIA, CT.NGUONTHUE,
+              CT.TILECHIETKHAU, CT.TIENCHIETKHAU,
+              CT.DMATHANGID, MH.NAME  AS TEN_PT, MH.CODE AS MA_PT,
+              CT.DDICHVUID,   DV.NAME  AS TEN_DV, DV.CODE AS MA_DV
+         FROM ${branchSql.table('TLENHSUACHUACHITIET')} CT
+         LEFT JOIN DMATHANG MH ON MH.ID = CT.DMATHANGID
+         LEFT JOIN DDICHVU  DV ON DV.ID = CT.DDICHVUID
+       WHERE CT.TLENHSUACHUAID = ? AND COALESCE(CT.STATUS,1)=1
+    ORDER BY CT.ID`,
+      [req.params.id]
+    );
+    const invoiceRows = await db.query(`SELECT FIRST 1 ID, TONGCONG, TIENPHUTUNG, TIENCONG,
+      TILETHUE, TIENTHUE, TILEPHIDICHVU, PHIDICHVU, TILEGIAMGIA, TIENGIAMGIA, NGUONGIAMGIA, TAXSUMMARY, DATHANHTOAN, CONLAI
+      FROM ${branchSql.table('THOADONSUACHUA')} WHERE TLENHSUACHUAID=? AND STATUS=1 ORDER BY NGAY DESC, TIMECREATED DESC`, [req.params.id]);
+    res.json({ data: { ...head[0], details, taxGroups: policy.summary(head[0].TAXSUMMARY),
+      invoice: invoiceRows[0] ? { ...invoiceRows[0], taxGroups: policy.summary(invoiceRows[0].TAXSUMMARY) } : null } });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/', async (req, res) => {
+  try {
+    policy.assertOverride(req, 'REPAIR');
+    const {
+      DXEID, DKHACHHANGID, TTIEPNHANXEID, NGAY,
+      NOTE, items = [],
+    } = req.body;
+    if (!DXEID || !DKHACHHANGID) return res.status(400).json({ error: 'Phai chon xe va khach hang' });
+    if (!items.length) return res.status(400).json({ error: 'Phai chon it nhat mot dich vu hoac phu tung' });
+
+    const actor = String(req.get('X-User') || 'SYSTEM').trim() || 'SYSTEM';
+    const result = await db.transaction(async (query, execute, uuidv4) => {
+      const active = await query(
+        `SELECT FIRST 1 ID, TLENHSUACHUAID, TTIEPNHANXEID, TRANGTHAI
+           FROM ${branchSql.table('TTRANGTHAIXE')}
+          WHERE DXEID=? AND STATUS=1 AND TRANGTHAI<4
+          ORDER BY NGAY_TRANGTHAI DESC, TIMECREATED DESC`,
+        [DXEID]
+      );
+      const activeFlow = active[0] || null;
+      if (activeFlow?.TLENHSUACHUAID) {
+        const error = new Error('Xe dang co quy trinh sua chua chua hoan thanh');
+        error.statusCode = 409;
+        throw error;
+      }
+      if (activeFlow?.TTIEPNHANXEID && TTIEPNHANXEID && activeFlow.TTIEPNHANXEID !== TTIEPNHANXEID) {
+        const error = new Error('Phieu tiep nhan khong khop voi quy trinh dang xu ly');
+        error.statusCode = 409;
+        throw error;
+      }
+
+      const id = uuidv4();
+      const workflowId = activeFlow?.ID || uuidv4();
+      const historyId = uuidv4();
+      const ma = await require('../services/documentNumbers.js').nextInTransaction('LenhSuaChua',query,execute);
+      let tongCong = 0;
+      let tongPT = 0;
+      const defaults = await charges.loadForRepairs(query);
+      policy.assertRates(req, defaults);
+      const rates = charges.resolveForRepairs(req.body, defaults);
+      const discountPolicy = policy.discountPolicy(await policy.customer(query, DKHACHHANGID), req.body.TILEGIAMGIA);
+      const normalized = [];
+      for (const it of items) {
+        if (![0, 1].includes(Number(it.LOAI))) throw Object.assign(new Error('Loại hạng mục không hợp lệ.'), { status: 400 });
+        const quantity = Number(it.SOLUONG), price = Number(it.DONGIA);
+        if (!Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(price) || price < 0) throw Object.assign(new Error('Số lượng hoặc đơn giá không hợp lệ.'), { status: 400 });
+        const amount = quantity * price;
+        if (Number(it.LOAI || 0) === 0) tongPT += amount;
+        else tongCong += amount;
+        const product = await policy.item(query, it.LOAI, Number(it.LOAI || 0) === 0 ? it.DMATHANGID : it.DDICHVUID);
+        if (price !== Number(product.UNITPRICE || 0)) require('../permissionPolicy.js').assert(req.accessUser, 'PRICING', 4);
+        normalized.push({ ...it, quantity, price, amount, discountRate: policy.rate(it.TILEGIAMGIA), ...policy.taxPolicy(product, rates, it.TILETHUE) });
+      }
+      const billReduction = policy.billDiscount(normalized, discountPolicy.discountRate, req.body.TIENGIAMGIAPHIEU);
+      discountPolicy.discountRate = billReduction.percent;
+      if (billReduction.fixed != null) discountPolicy.discountSource = 'Giảm giá bằng tiền trên phiếu';
+      const totals = policy.calculate(normalized, rates, billReduction.percent, billReduction.fixed);
+      const tongCongAll = totals.total;
+
+      await execute(
+        `INSERT INTO TLENHSUACHUA
+           (ID, NAME, NOTE, NGAY, DXEID, DKHACHHANGID, TTIEPNHANXEID,
+            TONGTIENCONG, TONGTIENPHUTUNG, TONGCONG,
+            TRANGTHAI, STATUS, USERCREATEDID, TIMECREATED, TILETHUE, TIENTHUE, TILEPHIDICHVU, PHIDICHVU)
+         VALUES (?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP), ?, ?, ?, ?, ?, ?, 0, 1, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?)`,
+        [id, ma, NOTE || null, NGAY, DXEID, DKHACHHANGID, TTIEPNHANXEID || null, tongCong, tongPT, tongCongAll, actor,
+         rates.taxRate, totals.tax, rates.serviceRate, totals.serviceFee]
+      );
+      await execute('UPDATE TLENHSUACHUA SET CHARGEVERSION=1, TILEGIAMGIA=?, TIENGIAMGIA=?, NGUONGIAMGIA=?, TAXSUMMARY=? WHERE ID=?',
+        [discountPolicy.discountRate, totals.discount, discountPolicy.discountSource, JSON.stringify(totals.taxGroups), id]);
+      await execute('UPDATE TLENHSUACHUA SET TIENGIAMGIAPHIEU=? WHERE ID=?', [billReduction.fixed, id]);
+
+      for (const it of totals.details) {
+        const type = Number(it.LOAI || 0);
+        const quantity = it.quantity;
+        const price = it.price;
+        await execute(
+          `INSERT INTO TLENHSUACHUACHITIET
+             (ID, TLENHSUACHUAID, DMATHANGID, DDICHVUID, DDONVITINHID,
+              SOLUONG, DONGIA, THANHTIEN, LOAI, TRANGTHAI, NOTE,
+              STATUS, USERCREATEDID, TIMECREATED, TILETHUE, TIENTHUE, TILEGIAMGIA, TIENGIAMGIA, NGUONTHUE,
+              TILECHIETKHAU, TIENCHIETKHAU)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 1, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?, ?, ?)`,
+          [uuidv4(), id, type === 0 ? it.DMATHANGID || null : null,
+            type === 1 ? it.DDICHVUID || null : null, it.DDONVITINHID || null,
+            quantity, price, quantity * price, type, it.NOTE || null, actor,
+            it.taxRate, it.tax, discountPolicy.discountRate, it.discount, it.taxSource,
+            it.lineDiscountRate, it.lineDiscount]
+        );
+      }
+
+      let advisorId = null;
+      let technicianId = null;
+      if (TTIEPNHANXEID) {
+        const receptions = await query(
+          `SELECT DNHANVIENCOOVANID, DNHANVIENKTVID FROM ${branchSql.table('TTIEPNHANXE')} WHERE ID=?`,
+          [TTIEPNHANXEID]
+        );
+        advisorId = receptions[0]?.DNHANVIENCOOVANID || null;
+        technicianId = receptions[0]?.DNHANVIENKTVID || null;
+        await execute(
+          `UPDATE TTIEPNHANXE SET TRANGTHAI=1, USERMODIFIEDID=?, TIMEMODIFIED=CURRENT_TIMESTAMP WHERE ID=?`,
+          [actor, TTIEPNHANXEID]
+        );
+      }
+
+      // Luu xong tiep nhan va bao gia: cho khach hang xac nhan sua chua.
+      const quoteCompletedState = require('../permissionPolicy.js').has(req.accessUser, 'APPROVE_QUOTE', 4) ? 1 : 0;
+      if (activeFlow) {
+        await execute(
+          `UPDATE TTRANGTHAIXE
+              SET TLENHSUACHUAID=?, TTIEPNHANXEID=COALESCE(TTIEPNHANXEID, ?),
+                  TRANGTHAI=?, NGAY_TRANGTHAI=CURRENT_TIMESTAMP,
+                  DNHANVIENKTVID=COALESCE(DNHANVIENKTVID, ?),
+                  DNHANVIENCOOVANID=COALESCE(DNHANVIENCOOVANID, ?),
+                  LYDO=?, GHICHU=?, USERMODIFIEDID=?, TIMEMODIFIED=CURRENT_TIMESTAMP
+            WHERE ID=?`,
+          [id, TTIEPNHANXEID || null, quoteCompletedState, technicianId, advisorId,
+            'Da luu tiep nhan va bao gia, cho xac nhan sua chua', NOTE || null, actor, workflowId]
+        );
+      } else {
+        await execute(
+          `INSERT INTO TTRANGTHAIXE
+             (ID, NAME, DXEID, DKHACHHANGID, TTIEPNHANXEID, TLENHSUACHUAID,
+              TRANGTHAI, NGAY_VAO, NGAY_TRANGTHAI, DNHANVIENKTVID,
+              DNHANVIENCOOVANID, LYDO, GHICHU, MUCUU_TIEN,
+              STATUS, USERCREATEDID, TIMECREATED)
+           VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP), CURRENT_TIMESTAMP,
+                   ?, ?, ?, ?, 0, 1, ?, CURRENT_TIMESTAMP)`,
+          [workflowId, `WF-${ma}`, DXEID, DKHACHHANGID, TTIEPNHANXEID || null, id,
+            quoteCompletedState, NGAY, technicianId, advisorId,
+            'Da luu tiep nhan va bao gia, cho xac nhan sua chua', NOTE || null, actor]
+        );
+      }
+      await execute(
+        `INSERT INTO TLICHSUTRANGTHAI
+           (ID, TTRANGTHAIXEID, DXEID, TRANGTHAI_CU, TRANGTHAI_MOI,
+            NGAY, DNHANVIENID, LYDO, GHICHU, STT,
+            STATUS, USERCREATEDID, TIMECREATED)
+         VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, NULL, ?, ?, ?, 1, ?, CURRENT_TIMESTAMP)`,
+        [historyId, workflowId, DXEID, activeFlow ? Number(activeFlow.TRANGTHAI) : null,
+          quoteCompletedState, 'Luu tiep nhan va bao gia, cho xac nhan sua chua',
+          NOTE || null, activeFlow ? 2 : 1, actor]
+      );
+      const quoteId = await repairQuotes.ensure(query, execute, uuidv4, id, actor);
+      return { id, quoteId, workflowId, code: ma, workflowState: quoteCompletedState };
+    });
+
+    res.json({ ok: true, ...result });
+  } catch (e) { res.status(e.status || e.statusCode || 500).json({ error: e.message }); }
+});
+
+router.patch('/:id/status', async (req, res) => {
+  try {
+    const { TRANGTHAI } = req.body;
+    await db.execute(
+      `UPDATE TLENHSUACHUA SET TRANGTHAI=?, USERMODIFIEDID=?, TIMEMODIFIED=CURRENT_TIMESTAMP
+       WHERE ID=?`,
+      [TRANGTHAI,req.accessUser.ID,req.params.id]
+    );
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.delete('/:id', async (req, res) => {
+  try {
+    await db.transaction(async(query,execute)=>{
+      const [order]=await query(`SELECT ID,TRANGTHAI FROM TLENHSUACHUA WHERE ${branchSql.lockPredicate('TLENHSUACHUA')}ID=? AND STATUS=1 WITH LOCK`,[req.params.id]);
+      if(!order)throw Object.assign(new Error('Không tìm thấy lệnh sửa chữa.'),{status:404});
+      if(Number(order.TRANGTHAI)!==0 || (await query(`SELECT FIRST 1 ID FROM ${branchSql.table('TXUATPHUTUNG')} WHERE TLENHSUACHUAID=? AND STATUS=1`,[req.params.id])).length || (await query(`SELECT FIRST 1 ID FROM ${branchSql.table('THOADONSUACHUA')} WHERE TLENHSUACHUAID=? AND STATUS=1`,[req.params.id])).length)throw Object.assign(new Error('Chỉ được hủy báo giá chưa bắt đầu sửa, chưa xuất hàng hoặc lập hóa đơn.'),{status:409});
+      const actor=req.accessUser.ID;
+      await execute('UPDATE TLENHSUACHUA SET STATUS=0,USERMODIFIEDID=?,TIMEMODIFIED=CURRENT_TIMESTAMP WHERE ID=?',[actor,req.params.id]);
+      await execute('UPDATE TLENHSUACHUACHITIET SET STATUS=0,USERMODIFIEDID=?,TIMEMODIFIED=CURRENT_TIMESTAMP WHERE TLENHSUACHUAID=?',[actor,req.params.id]);
+      await execute('UPDATE TTRANGTHAIXE SET STATUS=0,USERMODIFIEDID=?,TIMEMODIFIED=CURRENT_TIMESTAMP WHERE TLENHSUACHUAID=?',[actor,req.params.id]);
+    });
+    res.json({ok:true});
+  }catch(e){res.status(e.status||500).json({error:e.message});}
+});
+
+module.exports = router;

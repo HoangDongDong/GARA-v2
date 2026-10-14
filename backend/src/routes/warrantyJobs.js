@@ -1,0 +1,18 @@
+const router=require('express').Router(),service=require('../services/warrantyJobs');
+const handler=fn=>async(req,res)=>{try{res.json(await fn(req));}catch(e){res.status(e.status||500).json({error:e.message});}};
+router.get('/',handler(async()=>({data:await service.list()})));
+router.get('/vehicles',handler(async()=>({data:await service.vehicles()})));
+router.get('/charge-rates',handler(async()=>({data:{...await require('../services/defaultChargeRates').loadForRepairs(),...await require('../services/paymentSettings').load('repair')}})));
+router.get('/:id/assignments',handler(async req=>{require('../permissionPolicy').assert(req.accessUser,'WARRANTY');return {data:await require('../services/warrantyAccounting').assignments(req.params.id)};}));
+router.post('/:id/pay',handler(req=>{require('../permissionPolicy').assert(req.accessUser,'WARRANTY',4);require('../permissionPolicy').assert(req.accessUser,'PAYMENTS',4);require('../permissionPolicy').assert(req.accessUser,'HANDOVER',4);return require('../services/warrantyAccounting').pay(req.params.id,req.body,req.accessUser);}));
+router.get('/eligible/:vehicleId',handler(async req=>({data:await service.eligible(req.params.vehicleId)})));
+router.get('/:id/images',handler(async req=>({data:await require('../services/warrantyImages').list(req.params.id)})));
+router.post('/:id/images',handler(req=>{require('../permissionPolicy').assert(req.accessUser,'WARRANTY',4);return require('../services/warrantyImages').add(req.params.id,req.body,req.accessUser);}));
+router.get('/:id/supplements',handler(async req=>({data:await require('../services/warrantySupplements').list(req.params.id)})));
+router.post('/:id/supplements',handler(req=>require('../services/warrantySupplements').create(req.params.id,req.body,req.accessUser)));
+router.patch('/:id/supplements/:proposalId',handler(req=>{require('../permissionPolicy').assert(req.accessUser,'APPROVE_SUPPLEMENT',4);require('../permissionPolicy').assert(req.accessUser,'WARRANTY',4);return require('../services/warrantySupplements').action(req.params.id,req.params.proposalId,req.body,req.accessUser);}));
+router.get('/:id',handler(async req=>({data:await service.get(req.params.id)})));
+router.post('/',handler(req=>service.save(req.body,req.accessUser)));
+router.put('/:id',handler(req=>service.save(req.body,req.accessUser,req.params.id)));
+router.patch('/:id/transition',handler(req=>{require('../permissionPolicy').assert(req.accessUser,'WARRANTY',4);if(Number(req.body.expected)===1)require('../permissionPolicy').assert(req.accessUser,'ASSIGN_REPAIR',4);return service.transition(req.params.id,Number(req.body.expected),req.accessUser,req.body.note,req.body.assignments);}));
+module.exports=router;

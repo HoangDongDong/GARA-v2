@@ -1,0 +1,344 @@
+import { useEffect, useState } from 'react';
+import { Link, useSearchParams, useLocation } from 'react-router-dom';
+import { 
+  Car, Wrench, ShoppingCart, Boxes, ShieldCheck, 
+  BarChart3, User, Lock, Eye, EyeOff, LogIn, 
+  Fingerprint, QrCode 
+} from 'lucide-react';
+import './LoginPage.css';
+import { auth } from '../services';
+import api from '../api.js';
+import { registrationLogin, clearRegistrationLogin } from '../utils/registrationLogin.js';
+
+export default function LoginPage() {
+  const [params] = useSearchParams();
+  const location = useLocation();
+  const [username, setUsername] = useState(()=>location.state?.username || registrationLogin(params.get('store'))?.username || (params.get('username') || ''));
+  const [password, setPassword] = useState(()=>registrationLogin(params.get('store'))?.password || '');
+  useEffect(()=>{clearRegistrationLogin();},[]);
+  const [saas, setSaas] = useState(null);
+  useEffect(() => { let active=true; api.get('/saas/info').then(r=>{if(active)setSaas(r.data);}).catch(()=>{if(active)setSaas({error:true});});return()=>{active=false;}; },[]);
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [quickLoginMsg, setQuickLoginMsg] = useState('');
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+      const result = await auth.login(username, password);
+      localStorage.setItem('garage_user', JSON.stringify(result.data));
+      localStorage.setItem('garage_token', result.token);
+      const destinations = [['DASHBOARD','/'],['REPAIR','/sua-chua'],['SALES','/ban-hang'],['INVENTORY','/nhap-kho'],['SUPPLIERS','/nha-cung-cap'],['CUSTOMERS','/khach-hang'],['VEHICLES','/ho-so-xe'],['WARRANTY','/bao-hanh'],['FINANCE','/thu-chi'],['EMPLOYEES','/nhan-vien'],['REPORTS','/bao-cao'],['ADMIN','/quan-tri'],['SETTINGS','/cau-hinh']];
+      const firstAllowed = destinations.find(([code]) => Number(result.data.ISADMIN) === 1 || (Number(result.data.PERMISSIONS?.[code] || 0) & 1) === 1);
+      window.location.assign(firstAllowed?.[1] || '/');
+    } catch (loginError) {
+      setError(loginError?.response?.data?.error || 'Tên đăng nhập hoặc mật khẩu không đúng');
+    } finally { setLoading(false); }
+  };
+
+  const handleQuickLogin = (type) => {
+    if (type === 'windows') {
+      setQuickLoginMsg('Đăng nhập Windows chưa được cấu hình. Vui lòng dùng tài khoản được cấp.');
+    } else if (type === 'fingerprint') {
+      setQuickLoginMsg('Đăng nhập vân tay chưa được cấu hình. Vui lòng dùng tài khoản được cấp.');
+    } else if (type === 'qr') {
+      setQuickLoginMsg('Mở ứng dụng Kazuko trên điện thoại và quét mã QR');
+    }
+  };
+
+  // Danh mục 6 tính năng cốt lõi của Gara ô tô theo bố cục mockup
+  const garageFeatures = [
+    {
+      title: 'Sửa chữa & Dịch vụ',
+      desc: 'Lệnh sửa chữa, báo giá, tiến độ',
+      icon: <Wrench size={22} color="#E65100" />,
+      bg: '#FFF3E0'
+    },
+    {
+      title: 'Bán hàng & POS',
+      desc: 'Phụ tùng, vật tư, thanh toán nhanh',
+      icon: <ShoppingCart size={22} color="#16A34A" />,
+      bg: '#DCFCE7'
+    },
+    {
+      title: 'Kho phụ tùng',
+      desc: 'Nhập xuất tồn, quét mã vạch',
+      icon: <Boxes size={22} color="#D97706" />,
+      bg: '#FEF3C7'
+    },
+    {
+      title: 'Hồ sơ xe & Lịch sử',
+      desc: 'Nhận diện biển số OCR, tra cứu xe',
+      icon: <Car size={22} color="#2563EB" />,
+      bg: '#DBEAFE'
+    },
+    {
+      title: 'Bảo hành & Chăm sóc',
+      desc: 'Nhắc bảo dưỡng định kỳ, CSKH',
+      icon: <ShieldCheck size={22} color="#E11D48" />,
+      bg: '#FFE4E6'
+    },
+    {
+      title: 'Báo cáo & Thu chi',
+      desc: 'Doanh thu, lãi lỗ, công nợ chi tiết',
+      icon: <BarChart3 size={22} color="#9333EA" />,
+      bg: '#F3E8FF'
+    }
+  ];
+
+  return (
+    <div className="kazuko-login-page">
+      {/* CỘT TRÁI (DESKTOP): BẢNG GIỚI THIỆU THƯƠNG HIỆU & TÍNH NĂNG GARA */}
+      <div className="login-left-banner">
+        <div className="banner-glass-container">
+          {/* Logo & Slogan Header */}
+          <div className="banner-header">
+            <div className="brand-logo-badge">
+              <div className="car-badge-icon">
+                <Car size={30} color="#E65100" />
+              </div>
+              <div className="brand-badge-text">
+                <span className="brand-main">KAZUKO <span className="brand-accent">Auto</span></span>
+                <span className="brand-sub">ALL IN ONE GARAGE SYSTEM</span>
+              </div>
+            </div>
+            <h1 className="banner-main-title">Quản lý gara ô tô chuyên nghiệp</h1>
+            <p className="banner-sub-title">Một phần mềm — Vận hành trọn vẹn xưởng dịch vụ</p>
+          </div>
+
+          {/* Lưới 6 tính năng theo đúng bố cục mockup */}
+          <div className="banner-features-grid">
+            {garageFeatures.map((item, idx) => (
+              <div key={idx} className="feature-tile-card">
+                <div className="feature-icon-box" style={{ background: item.bg }}>
+                  {item.icon}
+                </div>
+                <div className="feature-text-box">
+                  <div className="feature-title">{item.title}</div>
+                  <div className="feature-desc">{item.desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Footer thông điệp giải pháp ở dưới cột trái */}
+          <div className="banner-bottom-slogan">
+            <div className="slogan-script">Giải pháp quản lý toàn diện</div>
+            <div className="slogan-caps">HIỆU QUẢ HƠN • ĐƠN GIẢN HƠN • PHÁT TRIỂN BỀN VỮNG</div>
+          </div>
+        </div>
+      </div>
+
+      {/* BANNER ĐẦU TRANG CHO MOBILE (THEO BỐ CỤC MOBILE MOCKUP) */}
+      <div className="login-mobile-banner">
+        <div className="mobile-banner-glass">
+          <div className="mobile-brand-row">
+            <Car size={26} color="#E65100" />
+            <span className="mobile-brand-title">KAZUKO <span className="brand-accent">Auto</span></span>
+          </div>
+          <div className="mobile-sub-title">HỆ THỐNG QUẢN LÝ GARA Ô TÔ</div>
+          <div className="mobile-script">Garage & Auto Care</div>
+
+          {/* 4 Icon hình tròn theo mockup mobile */}
+          <div className="mobile-quick-features">
+            <div className="mobile-feature-item">
+              <div className="circle-icon" style={{ background: '#FFF3E0' }}>
+                <Wrench size={18} color="#E65100" />
+              </div>
+              <span>Sửa chữa</span>
+            </div>
+            <div className="mobile-feature-item">
+              <div className="circle-icon" style={{ background: '#DCFCE7' }}>
+                <ShoppingCart size={18} color="#16A34A" />
+              </div>
+              <span>Bán hàng</span>
+            </div>
+            <div className="mobile-feature-item">
+              <div className="circle-icon" style={{ background: '#FEF3C7' }}>
+                <Boxes size={18} color="#D97706" />
+              </div>
+              <span>Kho phụ tùng</span>
+            </div>
+            <div className="mobile-feature-item">
+              <div className="circle-icon" style={{ background: '#DBEAFE' }}>
+                <Car size={18} color="#2563EB" />
+              </div>
+              <span>Hồ sơ xe</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* CỘT PHẢI (DESKTOP) / KHỐI DƯỚI (MOBILE): FORM ĐĂNG NHẬP */}
+      <div className="login-right-panel">
+        <div className="login-card">
+          {/* Header thẻ đăng nhập trên Desktop */}
+          <div className="login-card-header desktop-header">
+            <div className="card-brand-logo">
+              <div className="card-car-icon">
+                <Car size={24} color="#E65100" />
+              </div>
+              <div className="brand-text-col">
+                <span className="brand-name">
+                  KAZUKO <span className="brand-pos">Auto</span>
+                </span>
+                <span className="brand-sub">ALL IN ONE GARAGE SYSTEM</span>
+              </div>
+            </div>
+            <h2 className="login-title">Đăng nhập</h2>
+            <p className="login-welcome">Chào mừng bạn quay trở lại!</p>
+          </div>
+
+          {/* Header thẻ đăng nhập trên Mobile */}
+          <div className="login-card-header mobile-header">
+            <h2 className="login-title-mobile">
+              <span className="title-dot">•</span> Đăng nhập <span className="title-dot">•</span>
+            </h2>
+            <p className="login-welcome">Chào mừng bạn quay trở lại!</p>
+          </div>
+
+          {/* Form đăng nhập */}
+          <form onSubmit={handleLogin} className="login-form">
+            {location.state?.passwordChanged && <div role="status" style={{padding:12,borderRadius:8,background:'#ecfdf5',color:'#166534',fontSize:14}}>Đổi mật khẩu thành công. Vui lòng đăng nhập bằng mật khẩu mới.</div>}
+            {saas?.enabled && <p className="login-welcome">Nhập tên đăng nhập riêng của bạn. Hệ thống tự nhận diện cửa hàng.</p>}
+            {/* Input Tên đăng nhập */}
+            <div className="login-input-field">
+              <User size={18} className="field-icon" />
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Tên đăng nhập"
+                aria-label="Tên đăng nhập"
+                autoComplete="username"
+                required
+                className="field-input"
+              />
+            </div>
+
+            {/* Input Mật khẩu */}
+            <div className="login-input-field">
+              <Lock size={18} className="field-icon" />
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Mật khẩu"
+                aria-label="Mật khẩu"
+                autoComplete="current-password"
+                required
+                className="field-input"
+              />
+              <button
+                type="button"
+                className="toggle-eye-btn"
+                onClick={() => setShowPassword(!showPassword)}
+                tabIndex="-1"
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+
+            {/* Tùy chọn: Ghi nhớ & Quên mật khẩu */}
+            <div className="login-options-row">
+              <label className="remember-box">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                />
+                <span>Ghi nhớ mật khẩu</span>
+              </label>
+              <a 
+                href="#forgot" 
+                onClick={(e) => {
+                  e.preventDefault();
+                  alert('Vui lòng liên hệ Hotline: 0917 66 4444 để được hỗ trợ cấp lại mật khẩu.');
+                }}
+                className="forgot-link"
+              >
+                Quên mật khẩu?
+              </a>
+            </div>
+
+            {/* Thông báo lỗi & trạng thái */}
+            {error && <div className="login-error-msg">⚠️ {error}</div>}
+            {quickLoginMsg && <div className="login-info-msg">ℹ️ {quickLoginMsg}</div>}
+
+            {/* Nút Đăng nhập cam gradient */}
+            <button
+              type="submit"
+              disabled={loading || !saas || saas.error}
+              className="login-submit-button"
+            >
+              <LogIn size={18} />
+              <span>{loading ? 'Đang đăng nhập...' : !saas ? 'Đang kết nối…' : 'Đăng nhập'}</span>
+            </button>
+
+            {/* Đăng ký */}
+            <div className="register-prompt">
+              <span>Chưa có tài khoản? </span>
+              <Link to="/dang-ky" className="register-link">Đăng ký dùng thử</Link>
+              {saas?.error && <p role="alert">Chưa kết nối được máy chủ. Vui lòng tải lại trang.</p>}
+            </div>
+
+            {/* Hoặc đăng nhập nhanh (Desktop) */}
+            <div className="quick-login-section">
+              <div className="quick-login-divider">
+                <span>Hoặc đăng nhập nhanh</span>
+              </div>
+              <div className="quick-login-buttons">
+                <button
+                  type="button"
+                  onClick={() => handleQuickLogin('windows')}
+                  className="quick-btn"
+                  title="Đăng nhập Windows"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="#0078D4">
+                    <path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.902-1.799"/>
+                  </svg>
+                  <span>Windows</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleQuickLogin('fingerprint')}
+                  className="quick-btn"
+                  title="Đăng nhập Vân tay"
+                >
+                  <Fingerprint size={18} color="#059669" />
+                  <span>Vân tay</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleQuickLogin('qr')}
+                  className="quick-btn"
+                  title="Đăng nhập Quét mã QR"
+                >
+                  <QrCode size={18} color="#4F46E5" />
+                  <span>Quét mã QR</span>
+                </button>
+              </div>
+            </div>
+          </form>
+
+          {/* Footer thông tin công ty */}
+          <div className="login-company-footer">
+            <div className="company-name">PHẦN MỀM ĐƯỢC PHÁT TRIỂN BỞI CTY KAZUKO VIỆT NAM</div>
+            <div className="company-contact">
+              Hotline: <a href="tel:0917664444">0917 66 4444</a> - <a href="tel:0967041111">0967 04 1111</a>
+            </div>
+            <div className="company-contact">
+              Website: <a href="https://kazukovietnam.com" target="_blank" rel="noreferrer">kazukovietnam.com</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

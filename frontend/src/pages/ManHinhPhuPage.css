@@ -1,0 +1,3871 @@
+/* ========================================================
+   KAZUKO AUTO - MÀN HÌNH PHỤ & TRÌNH CHIẾU TV (3 MÀN HÌNH)
+   Phong cách chuẩn Salon & Garage Cao Cấp: Glassmorphism, Neon,
+   Theme Phong Thủy, Hiệu Ứng Laser & Quản Lý Đa Màn Hình
+   ======================================================== */
+
+/* ========================================================
+   PHẦN 1: QUẢN LÝ CẤU HÌNH ADMIN (/man-hinh-phu)
+   ======================================================== */
+
+.sd-admin-container {
+  padding: 12px 16px 40px;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: #1E293B;
+  background: transparent;
+  min-height: calc(100vh - 60px);
+}
+
+/* 1. THANH CHUYỂN 3 MÀN HÌNH TV */
+.sd-screen-tabs-bar {
+  margin-bottom: 20px;
+}
+
+.sd-screen-tabs-list {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.sd-screen-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  background: #FFFFFF;
+  border: 2px solid #E2E8F0;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  text-align: left;
+}
+
+.sd-screen-tab-btn:hover {
+  border-color: #CBD5E1;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.sd-screen-tab-btn.active {
+  border-color: #EA580C;
+  background: #FFFDF9;
+  box-shadow: 0 4px 14px rgba(234, 88, 12, 0.15);
+}
+
+.sd-screen-tab-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.sd-screen-tab-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.sd-screen-tab-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: #0F172A;
+  line-height: 1.25;
+}
+
+.sd-screen-tab-btn.active .sd-screen-tab-title {
+  color: #EA580C;
+}
+
+.sd-screen-tab-pages {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #64748B;
+  margin-top: 2px;
+}
+
+.sd-screen-open-link {
+  color: #94A3B8;
+  padding: 6px;
+  border-radius: 6px;
+  transition: all 0.15s;
+}
+
+.sd-screen-open-link:hover {
+  color: #EA580C;
+  background: #FFF7ED;
+}
+
+/* 2. CARD CẤU HÌNH CHÍNH */
+.sd-config-card {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 18px;
+  padding: 28px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+}
+
+/* TIÊU ĐỀ CÁC TRANG TRÌNH CHIẾU */
+.sd-pages-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.sd-pages-heading {
+  font-size: 18px;
+  font-weight: 800;
+  color: #0F172A;
+  margin: 0;
+}
+
+.sd-pages-subheading {
+  font-size: 13px;
+  color: #64748B;
+  margin: 4px 0 0;
+}
+
+.sd-pages-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.sd-btn-add-page {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #EA580C;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 10px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 8px rgba(234, 88, 12, 0.25);
+  white-space: nowrap;
+}
+
+.sd-btn-add-page svg {
+  stroke: currentColor;
+  flex-shrink: 0;
+}
+
+.sd-btn-add-page:hover {
+  background: #C2410C;
+  transform: translateY(-1px);
+}
+
+.sd-btn-action-outline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1.5px solid #CBD5E1;
+  background: #FFFFFF;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.sd-btn-action-outline svg {
+  stroke: currentColor;
+  flex-shrink: 0;
+}
+
+.sd-btn-action-outline:not(:disabled):hover {
+  background: #F8FAFC;
+  border-color: #94A3B8;
+  color: #0F172A;
+  transform: translateY(-1px);
+}
+
+.sd-btn-action-outline.danger {
+  border-color: #FECACA;
+  background: #FFF5F5;
+  color: #DC2626;
+}
+
+.sd-btn-action-outline.danger:not(:disabled):hover {
+  background: #FEE2E2;
+  border-color: #F87171;
+  color: #B91C1C;
+}
+
+.sd-btn-action-outline:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  border-color: #E2E8F0;
+  background: #F8FAFC;
+  color: #94A3B8;
+}
+
+/* DANH SÁCH THẺ TRANG (PAGE PILLS) */
+.sd-page-pills-list {
+  display: flex;
+  gap: 14px;
+  margin-bottom: 20px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.sd-page-pill {
+  padding: 12px 20px;
+  border-radius: 14px;
+  border: 2px solid #E2E8F0;
+  background: #FFFFFF;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  min-width: 170px;
+  transition: all 0.15s ease;
+}
+
+.sd-page-pill:hover {
+  border-color: #CBD5E1;
+}
+
+.sd-page-pill.active {
+  border-color: #EA580C;
+  background: #FFFDF9;
+  box-shadow: 0 3px 10px rgba(234, 88, 12, 0.12);
+}
+
+.sd-pill-num {
+  font-size: 14px;
+  font-weight: 800;
+  color: #0F172A;
+}
+
+.sd-page-pill.active .sd-pill-num {
+  color: #EA580C;
+}
+
+.sd-pill-stats {
+  font-size: 11.5px;
+  color: #64748B;
+  margin-top: 3px;
+}
+
+/* THANH ĐIỀU HƯỚNG TÊN TRANG & MŨI TÊN */
+.sd-page-nav-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+  padding: 8px 12px;
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+}
+
+.sd-page-name-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0F172A;
+  outline: none;
+}
+
+.sd-page-arrows {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.sd-page-counter-badge {
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748B;
+  background: #E2E8F0;
+  padding: 6px 12px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+
+.sd-arrow-btn {
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1.5px solid #CBD5E1;
+  background: #FFFFFF;
+  color: #334155;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.sd-arrow-btn svg {
+  stroke: currentColor;
+  flex-shrink: 0;
+}
+
+.sd-arrow-btn:not(:disabled):hover {
+  background: #F8FAFC;
+  border-color: #94A3B8;
+  color: #0F172A;
+}
+
+.sd-arrow-btn:disabled {
+  opacity: 0.45;
+  background: #F1F5F9;
+  border-color: #E2E8F0;
+  color: #94A3B8;
+  cursor: not-allowed;
+}
+
+/* FORM FIELDS & LAYOUT */
+.sd-form-row {
+  display: grid;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+
+.sd-form-row.three-cols {
+  grid-template-columns: 1.5fr 1.2fr 0.8fr;
+}
+
+.sd-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sd-field-group.full-width {
+  margin-bottom: 24px;
+}
+
+.sd-field-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1E293B;
+}
+
+.sd-input, .sd-select, .sd-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 14px;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 10px;
+  font-size: 13.5px;
+  color: #0F172A;
+  background: #FFFFFF;
+  transition: border-color 0.15s;
+  outline: none;
+}
+
+.sd-input:focus, .sd-select:focus, .sd-textarea:focus {
+  border-color: #EA580C;
+  box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.12);
+}
+
+.sd-number-unit-wrap {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.sd-input.number {
+  padding-right: 50px;
+}
+
+.sd-unit-label {
+  position: absolute;
+  right: 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #64748B;
+  pointer-events: none;
+}
+
+.sd-textarea {
+  resize: vertical;
+  line-height: 1.5;
+}
+
+/* SECTION BLOCKS */
+.sd-section-block {
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid #F1F5F9;
+}
+
+.sd-section-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.sd-section-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: #0F172A;
+  margin: 0;
+}
+
+.sd-section-subheading {
+  font-size: 12.5px;
+  color: #64748B;
+  margin: 3px 0 0;
+}
+
+.sd-section-note {
+  font-size: 12px;
+  color: #94A3B8;
+  font-weight: 500;
+}
+
+/* 3. MÀU MÀN HÌNH TV (9 MÀU PHONG THỦY) */
+.sd-color-themes-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.sd-theme-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 12px;
+  background: #FFFFFF;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sd-theme-card:hover {
+  border-color: #CBD5E1;
+  transform: translateY(-1px);
+}
+
+.sd-theme-card.active {
+  border-color: #EA580C;
+  background: #FFFDF9;
+  box-shadow: 0 2px 8px rgba(234, 88, 12, 0.12);
+}
+
+.sd-theme-color-box {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1);
+}
+
+.sd-theme-meta {
+  display: flex;
+  flex-direction: column;
+}
+
+.sd-theme-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0F172A;
+}
+
+.sd-theme-sub {
+  font-size: 11px;
+  color: #64748B;
+  margin-top: 1px;
+}
+
+/* 4. ẢNH NỀN CỦA TRANG */
+.sd-bg-presets-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.sd-bg-preset-card {
+  border: 2px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+  background: #FFFFFF;
+  text-align: center;
+}
+
+.sd-bg-preset-card:hover {
+  border-color: #CBD5E1;
+}
+
+.sd-bg-preset-card.active {
+  border-color: #EA580C;
+  background: #FFFDF9;
+  box-shadow: 0 2px 8px rgba(234, 88, 12, 0.15);
+}
+
+.sd-bg-preview-rect {
+  width: 100%;
+  height: 52px;
+  border-radius: 8px;
+  margin-bottom: 6px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1);
+}
+
+.sd-bg-preset-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #1E293B;
+}
+
+.sd-bg-controls-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+.sd-upload-bg-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #F1F5F9;
+  color: #334155;
+  border: 1px solid #CBD5E1;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.sd-upload-bg-btn:hover {
+  background: #E2E8F0;
+}
+
+.sd-custom-bg-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #FEF3C7;
+  color: #B45309;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.sd-remove-btn {
+  background: none;
+  border: none;
+  color: #DC2626;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.sd-field-group.mini {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.sd-field-group.mini .sd-select {
+  width: auto;
+  padding: 7px 12px;
+}
+
+.sd-overlay-slider-wrap {
+  margin-top: 16px;
+  background: #F8FAFC;
+  padding: 12px 16px;
+  border-radius: 10px;
+  border: 1px solid #E2E8F0;
+}
+
+.sd-slider-label-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: #475569;
+  margin-bottom: 8px;
+}
+
+.sd-slider {
+  width: 100%;
+  accent-color: #EA580C;
+  cursor: pointer;
+}
+
+/* 5. KIỂU KÍNH MỜ BẢNG GIÁ (GLASSMORPHISM) */
+.sd-glass-options-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.sd-glass-card {
+  padding: 18px 20px;
+  border-radius: 14px;
+  border: 2px solid #E2E8F0;
+  background: #FFFFFF;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sd-glass-card:hover {
+  border-color: #CBD5E1;
+}
+
+.sd-glass-card.active {
+  border-color: #EA580C;
+  box-shadow: 0 4px 14px rgba(234, 88, 12, 0.15);
+}
+
+.sd-glass-card.dark_gold {
+  background: #140E04;
+  color: #FFFFFF;
+}
+
+.sd-glass-card.dark_gold .sd-glass-name {
+  color: #FBBF24;
+}
+
+.sd-glass-card.dark_gold .sd-glass-desc {
+  color: #D1D5DB;
+}
+
+.sd-glass-card.dark_gold.active {
+  border-color: #F59E0B;
+}
+
+.sd-glass-card-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.sd-glass-icon-box {
+  color: #EA580C;
+}
+
+.sd-glass-card.dark_gold .sd-glass-icon-box {
+  color: #FBBF24;
+}
+
+.sd-glass-name {
+  font-size: 15px;
+  font-weight: 800;
+  color: #0F172A;
+}
+
+.sd-glass-desc {
+  font-size: 12.5px;
+  color: #64748B;
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* 6. HIỆU ỨNG CHỮ & GIÁ TIỀN */
+.sd-effects-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.sd-effect-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 16px 12px;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 14px;
+  background: #FFFFFF;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sd-effect-card:hover {
+  border-color: #CBD5E1;
+  transform: translateY(-1px);
+}
+
+.sd-effect-card.active {
+  border-color: #EA580C;
+  background: #FFFDF9;
+  box-shadow: 0 3px 10px rgba(234, 88, 12, 0.15);
+}
+
+.sd-effect-icon-circle {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #FFF7ED;
+  color: #EA580C;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.sd-effect-name {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #0F172A;
+}
+
+.sd-effect-desc {
+  font-size: 11px;
+  color: #64748B;
+  margin-top: 3px;
+}
+
+/* 7. BANNER QUẢNG BÁ */
+.sd-banner-speed-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #475569;
+}
+
+.sd-input.mini-number {
+  width: 60px;
+  text-align: center;
+  padding: 6px 8px;
+}
+
+.sd-add-banner-dropzone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px;
+  border: 2px dashed #FDBA74;
+  border-radius: 12px;
+  background: #FFFDF9;
+  color: #C2410C;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.sd-add-banner-dropzone:hover {
+  background: #FFF7ED;
+  border-color: #EA580C;
+}
+
+.sd-hint-text {
+  font-size: 12px;
+  color: #94A3B8;
+  margin: 6px 0 16px;
+}
+
+.sd-banners-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sd-banner-item-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+}
+
+.sd-banner-thumb {
+  width: 58px;
+  height: 44px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+.sd-banner-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.sd-banner-title-input {
+  border: 1px solid transparent;
+  background: transparent;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #0F172A;
+  padding: 3px 6px;
+  border-radius: 6px;
+}
+
+.sd-banner-title-input:focus {
+  background: #FFFFFF;
+  border-color: #CBD5E1;
+}
+
+.sd-banner-sub-input {
+  border: 1px solid transparent;
+  background: transparent;
+  font-size: 12px;
+  color: #64748B;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+.sd-banner-sub-input:focus {
+  background: #FFFFFF;
+  border-color: #CBD5E1;
+}
+
+.sd-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.sd-btn-move {
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1.5px solid #CBD5E1;
+  background: #FFFFFF;
+  color: #334155;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.sd-btn-move svg {
+  stroke: currentColor;
+  flex-shrink: 0;
+}
+
+.sd-btn-move:not(:disabled):hover {
+  background: #F1F5F9;
+  border-color: #94A3B8;
+  color: #0F172A;
+}
+
+.sd-btn-move:disabled {
+  opacity: 0.45;
+  background: #F8FAFC;
+  border-color: #E2E8F0;
+  color: #94A3B8;
+  cursor: not-allowed;
+}
+
+.sd-btn-trash {
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1.5px solid #FECACA;
+  background: #FFF5F5;
+  color: #DC2626;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.sd-btn-trash svg {
+  stroke: currentColor;
+  flex-shrink: 0;
+}
+
+.sd-btn-trash:hover {
+  background: #FEE2E2;
+  border-color: #F87171;
+  color: #B91C1C;
+}
+
+/* 8. DỊCH VỤ CỦA TRANG */
+.sd-btn-text-action {
+  background: none;
+  border: none;
+  color: #EA580C;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.sd-btn-text-action:hover {
+  text-decoration: underline;
+}
+
+.sd-services-checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  max-height: 480px;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.sd-service-check-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 12px;
+  background: #FFFFFF;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sd-service-check-item:hover {
+  border-color: #CBD5E1;
+}
+
+.sd-service-check-item.checked {
+  border-color: #EA580C;
+  background: #FFFDF9;
+}
+
+.sd-checkbox-icon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.sd-service-check-meta {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.sd-service-check-name {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #0F172A;
+}
+
+.sd-service-check-sub {
+  font-size: 12px;
+  color: #64748B;
+  margin-top: 2px;
+}
+
+.sd-assigned-tag {
+  color: #94A3B8;
+  font-style: normal;
+}
+
+/* 9. NÚT HÀNH ĐỘNG DƯỚI CÙNG */
+.sd-bottom-actions-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 32px;
+  padding-top: 20px;
+  border-top: 2px solid #F1F5F9;
+}
+
+.sd-save-status-msg {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.sd-status-success {
+  color: #16A34A;
+}
+
+.sd-status-dirty {
+  color: #EA580C;
+}
+
+.sd-action-buttons-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sd-btn-draft {
+  padding: 12px 24px;
+  border-radius: 30px;
+  background: #1E293B;
+  color: #FFFFFF;
+  border: none;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.sd-btn-draft:hover {
+  background: #0F172A;
+}
+
+.sd-btn-broadcast {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 26px;
+  border-radius: 30px;
+  background: #059669;
+  color: #FFFFFF;
+  border: none;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.15s;
+  box-shadow: 0 4px 14px rgba(5, 150, 105, 0.3);
+}
+
+.sd-btn-broadcast:hover {
+  background: #047857;
+  transform: translateY(-1px);
+}
+
+.sd-radio-wave {
+  animation: pulseRadio 1.5s infinite ease-in-out;
+}
+
+@keyframes pulseRadio {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  50% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(0.95); opacity: 0.8; }
+}
+
+
+/* ========================================================
+   PHẦN 2: GIAO DIỆN MÀN HÌNH TV REALTIME DISPLAY (/display)
+   ======================================================== */
+
+.tv-display-root {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 99999;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  user-select: none;
+  color: #FFFFFF;
+}
+
+.tv-background-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  background-size: cover;
+  background-position: center;
+}
+
+.tv-dark-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* TOP HEADER TRÊN TV */
+.tv-header {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 28px;
+  position: relative;
+  z-index: 10;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  flex-shrink: 0;
+}
+
+.tv-header-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.tv-brand-logo-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.tv-brand-info {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.tv-brand-title {
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  margin: 0;
+  color: #FFFFFF;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.tv-brand-sub {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.85);
+  text-transform: uppercase;
+}
+
+.tv-header-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.tv-hotline-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+  font-weight: 800;
+  color: #FFFFFF;
+  letter-spacing: 0.3px;
+}
+
+.tv-address-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.tv-realtime-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: rgba(0, 0, 0, 0.3);
+  font-size: 11px;
+  font-weight: 700;
+  color: #4ADE80;
+  border: 1px solid rgba(74, 222, 128, 0.3);
+}
+
+.tv-pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #4ADE80;
+  box-shadow: 0 0 8px #4ADE80;
+  animation: pulseDot 1.6s infinite ease-in-out;
+}
+
+@keyframes pulseDot {
+  0% { transform: scale(0.9); opacity: 0.7; }
+  50% { transform: scale(1.3); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0.7; }
+}
+
+/* THÂN MÀN HÌNH CHÍNH (SPLIT LAYOUT) */
+.tv-main-content {
+  flex: 1;
+  position: relative;
+  z-index: 5;
+  padding: 24px 32px;
+  display: flex;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.tv-split-layout {
+  display: grid;
+  grid-template-columns: 1.45fr 1fr;
+  gap: 28px;
+  width: 100%;
+  height: 100%;
+}
+
+.tv-split-layout.full-price {
+  grid-template-columns: 1fr;
+}
+
+/* KHUNG BẢNG GIÁ KÍNH MỜ (GLASSMORPHISM) */
+.tv-price-glass-card {
+  border-radius: 20px;
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* KÍNH ĐEN MỜ (DARK GOLD GLASS) */
+.tv-price-glass-card.glass-style-dark_gold {
+  background: rgba(14, 10, 4, 0.78);
+  border: 1.5px solid rgba(212, 175, 55, 0.4);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 215, 0, 0.2);
+  color: #FFFFFF;
+}
+
+.tv-price-glass-card.glass-style-dark_gold .tv-group-title {
+  color: #FBBF24;
+}
+
+.tv-price-glass-card.glass-style-dark_gold .tv-group-bullet {
+  background: #F59E0B;
+  box-shadow: 0 0 10px #F59E0B;
+}
+
+.tv-price-glass-card.glass-style-dark_gold .tv-service-name {
+  color: #F8FAFC;
+}
+
+.tv-price-glass-card.glass-style-dark_gold .tv-service-price {
+  color: #FBBF24;
+}
+
+/* KÍNH TRẮNG MỜ (LIGHT GLASS) */
+.tv-price-glass-card.glass-style-light_glass {
+  background: rgba(255, 255, 255, 0.88);
+  border: 1.5px solid rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+  color: #0F172A;
+}
+
+.tv-price-glass-card.glass-style-light_glass .tv-group-title {
+  color: #0F172A;
+}
+
+.tv-price-glass-card.glass-style-light_glass .tv-group-bullet {
+  background: #EA580C;
+  box-shadow: 0 0 10px rgba(234, 88, 12, 0.5);
+}
+
+.tv-price-glass-card.glass-style-light_glass .tv-service-name {
+  color: #1E293B;
+}
+
+.tv-price-glass-card.glass-style-light_glass .tv-service-price {
+  color: #DC2626;
+}
+
+.tv-price-glass-card.glass-style-light_glass .tv-service-row {
+  border-bottom-color: rgba(0, 0, 0, 0.06);
+}
+
+/* CỘT NHÓM DỊCH VỤ */
+.tv-price-columns {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 28px;
+  height: 100%;
+}
+
+.tv-price-group-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.tv-group-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.tv-group-bullet {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.tv-group-title {
+  font-size: 16px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.tv-service-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.tv-service-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.12);
+}
+
+.tv-service-name {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.tv-service-price {
+  font-size: 16px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+  margin-left: 12px;
+}
+
+/* HIỆU ỨNG CHỮ & GIÁ TIỀN */
+.tv-service-price.effect-laser {
+  background: linear-gradient(90deg, #F59E0B 0%, #FFFBEB 50%, #F59E0B 100%);
+  background-size: 200% auto;
+  color: transparent !important;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: laserShine 2.5s linear infinite;
+}
+
+@keyframes laserShine {
+  to { background-position: 200% center; }
+}
+
+.tv-service-price.effect-neon {
+  text-shadow: 0 0 10px #F59E0B, 0 0 20px #D97706;
+}
+
+.tv-service-price.effect-blink {
+  animation: doubleBlink 2.2s infinite ease-in-out;
+}
+
+@keyframes doubleBlink {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  45% { opacity: 0.35; transform: scale(0.97); }
+  50% { opacity: 1; transform: scale(1.03); }
+  55% { opacity: 0.45; transform: scale(0.98); }
+  60% { opacity: 1; transform: scale(1); }
+}
+
+/* CỘT BANNER QUẢNG BÁ TRÊN TV */
+.tv-banner-showcase-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.tv-banner-image-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+}
+
+.tv-banner-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.tv-banner-badge-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 20px 24px;
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.tv-banner-badge-tag {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.85);
+  margin-bottom: 4px;
+}
+
+.tv-banner-badge-title {
+  font-size: 22px;
+  font-weight: 900;
+  color: #FFFFFF;
+  margin: 0;
+  letter-spacing: 0.5px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.tv-banner-badge-sub {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 4px 0 0;
+}
+
+/* FOOTER DƯỚI CÙNG TRÊN TV */
+.tv-footer {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  position: relative;
+  z-index: 10;
+  flex-shrink: 0;
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.tv-footer-hotline-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  color: #FFFFFF;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  flex-shrink: 0;
+}
+
+.tv-marquee-track {
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  margin: 0 24px;
+}
+
+.tv-marquee-text {
+  display: inline-block;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #FFFFFF;
+  letter-spacing: 0.4px;
+  animation: marqueeRun 25s linear infinite;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+@keyframes marqueeRun {
+  0% { transform: translateX(100vw); }
+  100% { transform: translateX(-100%); }
+}
+
+.tv-footer-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.tv-page-indicator {
+  font-size: 12px;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(0, 0, 0, 0.25);
+  padding: 4px 10px;
+  border-radius: 12px;
+}
+
+.tv-fullscreen-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.2);
+  color: #FFFFFF;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  transition: all 0.15s;
+}
+
+.tv-fullscreen-btn:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+/* REPAIR FLOW & BANNER ONLY MODES */
+.tv-repair-flow-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: rgba(14, 10, 4, 0.75);
+  backdrop-filter: blur(16px);
+  border-radius: 20px;
+  border: 1.5px solid rgba(212, 175, 55, 0.4);
+  padding: 28px;
+  box-sizing: border-box;
+}
+
+.tv-flow-header h2 {
+  font-size: 20px;
+  font-weight: 900;
+  color: #FBBF24;
+  margin: 0;
+}
+
+.tv-flow-header span {
+  font-size: 13px;
+  color: #94A3B8;
+}
+
+.tv-flow-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.tv-flow-card {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tv-flow-car-badge {
+  font-size: 18px;
+  font-weight: 900;
+  color: #FBBF24;
+}
+
+.tv-flow-car-type {
+  font-size: 13px;
+  color: #E2E8F0;
+}
+
+.tv-flow-step .step-tag {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: #EA580C;
+  color: #FFFFFF;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.tv-empty-box {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 40px;
+  color: #94A3B8;
+  font-size: 16px;
+}
+
+/* FULLSCREEN BANNER MODE */
+.tv-banner-fullscreen-container {
+  width: 100%;
+  height: 100%;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+}
+
+.tv-banner-fullscreen-img {
+  width: 100%;
+  height: 100%;
+  background-size: cover;
+  background-position: center;
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+}
+
+.tv-banner-label-bar {
+  width: 100%;
+  padding: 32px 40px;
+  box-shadow: 0 -12px 30px rgba(0, 0, 0, 0.4);
+}
+
+.tv-banner-main-title {
+  font-size: 32px;
+  font-weight: 900;
+  color: #FFFFFF;
+  margin: 6px 0;
+}
+
+.tv-banner-sub-text {
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.95);
+  margin: 0;
+}
+
+/* ========================================================
+   CÁC PHONG CÁCH MÀN HÌNH MỚI: THANH TOÁN VIETQR & TIẾN ĐỘ
+   ======================================================== */
+
+/* SELECTOR KIỂU MÀN HÌNH TẠI TRANG ADMIN */
+.sd-screen-type-selector-box {
+  background: #FFF7ED;
+  border: 1.5px solid #FDBA74;
+  border-radius: 14px;
+  padding: 16px 20px;
+  margin-bottom: 24px;
+}
+
+.sd-screen-type-buttons {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.sd-type-select-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 2px solid #FED7AA;
+  background: #FFFFFF;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+}
+
+.sd-type-select-btn:hover {
+  border-color: #EA580C;
+  background: #FFFDF9;
+}
+
+.sd-type-select-btn.active {
+  border-color: #EA580C;
+  background: #EA580C;
+  color: #FFFFFF;
+  box-shadow: 0 4px 12px rgba(234, 88, 12, 0.25);
+}
+
+.sd-payment-config-box {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 16px 20px;
+  font-size: 13.5px;
+  color: #334155;
+  line-height: 1.6;
+}
+
+.sd-payment-config-box ul {
+  margin: 8px 0 0 20px;
+  padding: 0;
+}
+
+/* ========================================================
+   HEADER CHUYÊN BIỆT CHO POS & WORKSHOP
+   ======================================================== */
+.tv-pos-header,
+.tv-workshop-header {
+  border-bottom: 2px solid rgba(251, 191, 36, 0.35);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
+}
+
+.tv-brand-logo-icon.pos-icon {
+  background: rgba(245, 158, 11, 0.2);
+  border: 1.5px solid rgba(251, 191, 36, 0.5);
+}
+
+.tv-brand-logo-icon.workshop-icon {
+  background: rgba(14, 165, 233, 0.2);
+  border: 1.5px solid rgba(56, 189, 248, 0.5);
+}
+
+.tv-clock-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  padding: 6px 14px;
+  border-radius: 10px;
+}
+
+.tv-clock-time {
+  font-family: monospace;
+  font-size: 15px;
+  font-weight: 800;
+  color: #FFFFFF;
+  letter-spacing: 1px;
+}
+
+.tv-napas-live-badge,
+.tv-workshop-status-badge {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 6px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #F8FAFC;
+}
+
+.tv-pulse-dot.green {
+  background: #10B981;
+  box-shadow: 0 0 8px #10B981;
+}
+
+.tv-pulse-dot.amber {
+  background: #F59E0B;
+  box-shadow: 0 0 8px #F59E0B;
+}
+
+.tv-test-toggle-pill {
+  background: rgba(245, 158, 11, 0.25);
+  border: 1px solid rgba(245, 158, 11, 0.6);
+  color: #FDE68A;
+  font-size: 11.5px;
+  font-weight: 800;
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tv-test-toggle-pill:hover {
+  background: #F59E0B;
+  color: #000;
+}
+
+/* ========================================================
+   KIỂU 2: BẢNG KÊ THANH TOÁN & QUÉT MÃ VIETQR (QUẦY POS)
+   ======================================================== */
+.tv-payment-wrapper {
+  width: 100%;
+  height: 100%;
+  display: flex;
+}
+
+.tv-payment-layout {
+  display: grid;
+  grid-template-columns: 1.4fr 0.95fr;
+  gap: 24px;
+  width: 100%;
+  height: 100%;
+}
+
+/* TỜ HÓA ĐƠN ĐIỆN TỬ KÍNH MỜ */
+.tv-invoice-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: rgba(15, 10, 4, 0.85);
+  border: 1.5px solid rgba(212, 175, 55, 0.45);
+  backdrop-filter: blur(20px);
+  border-radius: 20px;
+  padding: 22px 26px;
+  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.55);
+}
+
+.tv-invoice-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.tv-plate-badge-pos {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #111827;
+  border: 2px solid #F59E0B;
+  box-shadow: 0 0 14px rgba(245, 158, 11, 0.25);
+  padding: 8px 18px;
+  border-radius: 12px;
+}
+
+.tv-plate-text {
+  font-size: 22px;
+  font-weight: 900;
+  color: #FBBF24;
+  letter-spacing: 1.5px;
+}
+
+.tv-invoice-meta-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.tv-invoice-code {
+  font-size: 14px;
+  color: #94A3B8;
+}
+
+.tv-invoice-code b {
+  color: #FFFFFF;
+  margin-left: 6px;
+  font-family: monospace;
+  font-size: 15px;
+}
+
+.tv-invoice-time {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: #94A3B8;
+}
+
+.tv-invoice-customer-bar {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 10px;
+  padding: 10px 16px;
+  margin: 14px 0;
+  font-size: 13.5px;
+  color: #CBD5E1;
+}
+
+.tv-customer-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tv-customer-meta-item b {
+  color: #FFFFFF;
+}
+
+/* BẢNG CHI TIẾT DỊCH VỤ & PHỤ TÙNG */
+.tv-invoice-table-wrap {
+  flex: 1;
+  overflow-y: auto;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 14px;
+}
+
+.tv-invoice-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+
+.tv-invoice-table thead {
+  position: sticky;
+  top: 0;
+  background: rgba(30, 24, 15, 0.95);
+  border-bottom: 1.5px solid rgba(255, 255, 255, 0.12);
+  z-index: 2;
+}
+
+.tv-invoice-table th {
+  padding: 10px 12px;
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #FBBF24;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.tv-invoice-tr {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  transition: background 0.12s;
+}
+
+.tv-invoice-tr:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.tv-invoice-table td {
+  padding: 9px 12px;
+  color: #E2E8F0;
+}
+
+.tv-td-stt {
+  color: #FBBF24;
+  font-weight: 700;
+}
+
+.tv-td-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tv-item-icon {
+  font-size: 14px;
+}
+
+.tv-item-title {
+  font-weight: 600;
+  color: #FFFFFF;
+}
+
+.tv-type-pill {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 6px;
+}
+
+.tv-type-pill.part {
+  background: rgba(2, 132, 199, 0.2);
+  color: #38BDF8;
+  border: 1px solid rgba(2, 132, 199, 0.4);
+}
+
+.tv-type-pill.labor {
+  background: rgba(234, 88, 12, 0.2);
+  color: #FB923C;
+  border: 1px solid rgba(234, 88, 12, 0.4);
+}
+
+.tv-td-qty {
+  font-weight: 700;
+  color: #94A3B8;
+}
+
+.tv-td-price {
+  color: #CBD5E1;
+  font-family: monospace;
+}
+
+.tv-td-amount {
+  font-weight: 800;
+  color: #FBBF24;
+  font-family: monospace;
+  font-size: 14px;
+}
+
+/* FOOTER HÓA ĐƠN */
+.tv-invoice-footer-box {
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+  border-radius: 12px;
+  padding: 12px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tv-summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13.5px;
+  color: #CBD5E1;
+}
+
+.tv-summary-row b {
+  color: #FFFFFF;
+  font-family: monospace;
+  font-size: 14.5px;
+}
+
+.tv-summary-row.discount {
+  color: #34D399;
+}
+
+.tv-summary-row.discount b {
+  color: #34D399;
+}
+
+.tv-summary-row.grand-total-row {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1.5px solid rgba(255, 255, 255, 0.15);
+}
+
+.tv-grand-label {
+  font-size: 15px;
+  font-weight: 900;
+  color: #FFFFFF;
+  letter-spacing: 0.5px;
+}
+
+.tv-grand-amount {
+  font-size: 26px;
+  font-weight: 900;
+  color: #F59E0B;
+  font-family: monospace;
+  letter-spacing: 0.5px;
+}
+
+.tv-amount-in-words {
+  font-size: 12px;
+  color: #FDE68A;
+  padding-top: 4px;
+  font-style: italic;
+}
+
+.tv-amount-in-words span {
+  color: #94A3B8;
+}
+
+/* DOCK QUÉT VIETQR BÊN PHẢI */
+.tv-payment-qr-column {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  height: 100%;
+}
+
+.tv-vietqr-card {
+  background: #FFFFFF;
+  border-radius: 20px;
+  padding: 18px 22px;
+  color: #0F172A;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.tv-vietqr-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.tv-vietqr-napas-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 900;
+  font-size: 14px;
+  color: #0284C7;
+}
+
+.vietqr-pill {
+  background: #EA580C;
+  color: #FFFFFF;
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 11px;
+}
+
+.tv-vietqr-hint {
+  font-size: 11.5px;
+  color: #64748B;
+  font-weight: 600;
+}
+
+.tv-vietqr-img-wrapper {
+  padding: 6px;
+  background: #FFFFFF;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 12px;
+  margin-bottom: 8px;
+}
+
+.tv-vietqr-image {
+  width: 175px;
+  height: 175px;
+  object-fit: contain;
+  display: block;
+}
+
+.tv-vietqr-details-table {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12.5px;
+  text-align: left;
+  border-top: 1px solid #E2E8F0;
+  padding-top: 8px;
+}
+
+.tv-qr-line {
+  display: flex;
+  justify-content: space-between;
+  color: #475569;
+}
+
+.tv-qr-line b {
+  color: #0F172A;
+}
+
+.tv-qr-line.highlight {
+  font-size: 14px;
+  color: #0F172A;
+  font-weight: 800;
+  margin-top: 3px;
+  padding-top: 4px;
+  border-top: 1px dashed #CBD5E1;
+}
+
+.tv-qr-amount {
+  color: #EA580C;
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.tv-qr-line.memo mark {
+  background: #FEF3C7;
+  color: #92400E;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 700;
+}
+
+.tv-vietqr-guide-steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  width: 100%;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #E2E8F0;
+}
+
+.tv-guide-step {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #475569;
+}
+
+.tv-guide-num {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #EA580C;
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+}
+
+.tv-payment-status-card {
+  background: rgba(15, 10, 4, 0.85);
+  border: 1px solid rgba(251, 191, 36, 0.4);
+  border-radius: 14px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.tv-radar-scanner {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tv-radar-meta {
+  display: flex;
+  flex-direction: column;
+}
+
+.tv-radar-meta b {
+  font-size: 13px;
+  color: #FBBF24;
+  letter-spacing: 0.5px;
+}
+
+.tv-radar-meta span {
+  font-size: 11px;
+  color: #94A3B8;
+}
+
+.tv-payment-perks-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tv-perk-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(15, 10, 4, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #CBD5E1;
+}
+
+/* GIAO DIỆN CHỜ GIAO DỊCH 5S (STANDBY) */
+.tv-payment-standby-full {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tv-standby-luxury-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 28px;
+  width: 100%;
+  max-width: 1100px;
+}
+
+.tv-standby-info-card {
+  background: rgba(14, 10, 4, 0.85);
+  border: 1.5px solid rgba(212, 175, 55, 0.4);
+  backdrop-filter: blur(20px);
+  border-radius: 24px;
+  padding: 36px 40px;
+  display: flex;
+  flex-direction: column;
+}
+
+.tv-standby-icon-aura {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1.5px solid rgba(245, 158, 11, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+  box-shadow: 0 0 25px rgba(245, 158, 11, 0.25);
+}
+
+.tv-standby-info-card h2 {
+  font-size: 22px;
+  font-weight: 900;
+  color: #FBBF24;
+  margin: 0 0 8px;
+  letter-spacing: 0.5px;
+}
+
+.tv-standby-subdesc {
+  font-size: 13.5px;
+  color: #94A3B8;
+  margin: 0 0 24px;
+  line-height: 1.5;
+}
+
+.tv-standby-perks-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.tv-standby-perk-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.tv-standby-perk-item div {
+  display: flex;
+  flex-direction: column;
+}
+
+.tv-standby-perk-item b {
+  font-size: 13px;
+  color: #FFFFFF;
+}
+
+.tv-standby-perk-item span {
+  font-size: 11.5px;
+  color: #94A3B8;
+  line-height: 1.35;
+}
+
+.tv-standby-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 18px;
+  margin-top: auto;
+}
+
+.tv-standby-status-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: #CBD5E1;
+}
+
+.tv-btn-view-demo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(245, 158, 11, 0.2);
+  border: 1.5px solid #F59E0B;
+  color: #FDE68A;
+  padding: 8px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tv-btn-view-demo:hover {
+  background: #F59E0B;
+  color: #000;
+}
+
+.tv-standby-qr-card {
+  background: rgba(14, 10, 4, 0.85);
+  border: 1.5px solid rgba(212, 175, 55, 0.4);
+  backdrop-filter: blur(20px);
+  border-radius: 24px;
+  padding: 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.tv-qr-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-bottom: 14px;
+}
+
+.tv-napas-pill {
+  background: #0284C7;
+  color: #FFFFFF;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.tv-garage-account-label {
+  font-size: 11px;
+  font-weight: 800;
+  color: #FBBF24;
+  letter-spacing: 0.5px;
+}
+
+.tv-static-qr-img-box {
+  background: #FFFFFF;
+  border-radius: 16px;
+  padding: 10px;
+  margin-bottom: 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.tv-static-qr-img {
+  width: 190px;
+  height: 190px;
+  display: block;
+  object-fit: contain;
+}
+
+.tv-static-qr-meta {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12.5px;
+  text-align: left;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 12px;
+  margin-bottom: 12px;
+}
+
+.tv-meta-row {
+  display: flex;
+  justify-content: space-between;
+  color: #94A3B8;
+}
+
+.tv-meta-row b {
+  color: #FFFFFF;
+}
+
+.tv-static-acc {
+  color: #FBBF24;
+  font-family: monospace;
+  font-size: 14px;
+}
+
+.tv-static-qr-hint {
+  font-size: 11px;
+  color: #94A3B8;
+  line-height: 1.4;
+}
+
+/* ========================================================
+   KIỂU 3: BẢNG TIẾN ĐỘ SỬA CHỮA XƯỞNG DỊCH VỤ (PHÒNG CHỜ VIP)
+   ======================================================== */
+.tv-workshop-wrapper {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* THANH 4 CHỈ SỐ VẬN HÀNH XƯỞNG */
+.tv-workshop-metrics-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.tv-metric-tile {
+  background: rgba(14, 20, 30, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(14px);
+  border-radius: 14px;
+  padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  position: relative;
+  overflow: hidden;
+}
+
+.tv-metric-tile.repairing {
+  border-color: rgba(249, 115, 22, 0.4);
+}
+
+.tv-metric-tile.kcs {
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+.tv-metric-tile.ready {
+  border-color: rgba(16, 185, 129, 0.5);
+  background: rgba(6, 78, 59, 0.35);
+}
+
+.tv-metric-icon-wrap {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tv-metric-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.tv-metric-num {
+  font-size: 24px;
+  font-weight: 900;
+  color: #FFFFFF;
+  line-height: 1.1;
+  font-family: monospace;
+}
+
+.tv-metric-name {
+  font-size: 12px;
+  color: #94A3B8;
+  font-weight: 600;
+}
+
+.tv-status-glow-dot {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.tv-status-glow-dot.orange {
+  background: #F97316;
+  box-shadow: 0 0 10px #F97316;
+}
+
+.tv-status-glow-dot.amber {
+  background: #F59E0B;
+  box-shadow: 0 0 10px #F59E0B;
+}
+
+.tv-status-glow-dot.green {
+  background: #10B981;
+  box-shadow: 0 0 10px #10B981;
+}
+
+.tv-repair-flow-layout {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 24px;
+  flex: 1;
+  height: calc(100% - 80px);
+}
+
+/* THẺ XE SPOTLIGHT */
+.tv-featured-car-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: rgba(14, 20, 30, 0.85);
+  border: 1.5px solid rgba(56, 189, 248, 0.35);
+  backdrop-filter: blur(20px);
+  border-radius: 20px;
+  padding: 22px 26px;
+  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.55);
+}
+
+.tv-featured-car-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.tv-featured-plate {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #111827;
+  border: 2px solid #F59E0B;
+  box-shadow: 0 0 14px rgba(245, 158, 11, 0.25);
+  padding: 8px 18px;
+  border-radius: 12px;
+}
+
+.tv-plate-number {
+  font-size: 24px;
+  font-weight: 900;
+  color: #FBBF24;
+  letter-spacing: 1.5px;
+}
+
+.tv-featured-car-model h3 {
+  font-size: 20px;
+  font-weight: 900;
+  color: #FFFFFF;
+  margin: 0 0 4px;
+  text-align: right;
+}
+
+.tv-model-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #94A3B8;
+  justify-content: flex-end;
+}
+
+.tv-model-meta-row b {
+  color: #FFFFFF;
+}
+
+.tv-sep {
+  color: #64748B;
+}
+
+/* 5 BƯỚC TIẾN ĐỘ */
+.tv-flow-steps-tracker {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  position: relative;
+  margin-bottom: 20px;
+  padding: 14px 18px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 14px;
+}
+
+.tv-step-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 4px;
+  z-index: 2;
+  flex: 1;
+}
+
+.tv-step-dot {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 800;
+  color: #94A3B8;
+  transition: all 0.2s;
+  margin-bottom: 2px;
+}
+
+.tv-step-node.done .tv-step-dot {
+  background: #10B981;
+  border-color: #10B981;
+  color: #FFFFFF;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.4);
+}
+
+.tv-step-node.current .tv-step-dot {
+  background: #EA580C;
+  border-color: #FDBA74;
+  color: #FFFFFF;
+  box-shadow: 0 0 16px rgba(234, 88, 12, 0.6);
+  transform: scale(1.15);
+}
+
+.tv-step-label {
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #94A3B8;
+}
+
+.tv-step-sub {
+  font-size: 9.5px;
+  color: #64748B;
+}
+
+.tv-step-node.current .tv-step-label {
+  color: #FBBF24;
+}
+
+.tv-step-node.current .tv-step-sub {
+  color: #FDE68A;
+}
+
+/* HẠNG MỤC DỊCH VỤ */
+.tv-featured-tasks-box {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 16px 20px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+.tv-tasks-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.tv-tasks-title {
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #38BDF8;
+  letter-spacing: 0.6px;
+  margin: 0;
+}
+
+.tv-tasks-count {
+  font-size: 12px;
+  color: #94A3B8;
+}
+
+.tv-tasks-count b {
+  color: #FBBF24;
+}
+
+.tv-tasks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.tv-task-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 13.5px;
+}
+
+.tv-task-text {
+  flex: 1;
+  color: #E2E8F0;
+  font-weight: 500;
+}
+
+.tv-task-badge {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 6px;
+}
+
+.tv-task-badge.done {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34D399;
+}
+
+.tv-task-badge.doing {
+  background: rgba(245, 158, 11, 0.2);
+  color: #FBBF24;
+}
+
+.tv-task-badge.pending {
+  background: rgba(100, 116, 139, 0.2);
+  color: #94A3B8;
+}
+
+.spin-slow {
+  animation: spin 3s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.tv-featured-footer-meta {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  padding-top: 14px;
+}
+
+.tv-meta-cell {
+  display: flex;
+  flex-direction: column;
+  font-size: 11.5px;
+  color: #94A3B8;
+}
+
+.tv-meta-cell b {
+  font-size: 13.5px;
+  color: #FFFFFF;
+  margin-top: 2px;
+}
+
+.tv-meta-cell.highlight b {
+  color: #FBBF24;
+  font-weight: 800;
+}
+
+/* HÀNG ĐỢI XE BÊN PHẢI */
+.tv-queue-column {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  height: 100%;
+}
+
+.tv-queue-card {
+  flex: 1;
+  background: rgba(14, 20, 30, 0.82);
+  border: 1.5px solid rgba(56, 189, 248, 0.3);
+  backdrop-filter: blur(16px);
+  border-radius: 20px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.tv-queue-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.tv-queue-header h3 {
+  font-size: 14px;
+  font-weight: 900;
+  color: #FBBF24;
+  margin: 0;
+  letter-spacing: 0.5px;
+}
+
+.tv-queue-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.tv-queue-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.tv-queue-row:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.tv-queue-row.active {
+  border-color: #38BDF8;
+  background: rgba(14, 165, 233, 0.2);
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.2);
+}
+
+.tv-queue-row.is-ready {
+  border-color: rgba(16, 185, 129, 0.5);
+  background: rgba(6, 78, 59, 0.3);
+}
+
+.tv-queue-left {
+  display: flex;
+  flex-direction: column;
+}
+
+.tv-queue-plate {
+  font-size: 14.5px;
+  color: #FFFFFF;
+  letter-spacing: 0.5px;
+}
+
+.tv-queue-model {
+  font-size: 11.5px;
+  color: #94A3B8;
+}
+
+.tv-queue-bay {
+  font-size: 10px;
+  color: #38BDF8;
+  margin-top: 2px;
+}
+
+.tv-queue-badge {
+  padding: 4px 9px;
+  border-radius: 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.tv-queue-badge.status-1 {
+  background: #0284C7;
+  color: #FFFFFF;
+}
+
+.tv-queue-badge.status-2 {
+  background: #EA580C;
+  color: #FFFFFF;
+}
+
+.tv-queue-badge.status-3 {
+  background: #F59E0B;
+  color: #000;
+}
+
+.tv-queue-badge.status-4 {
+  background: #10B981;
+  color: #FFFFFF;
+  animation: pulse-green 2s infinite;
+}
+
+@keyframes pulse-green {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+  50% { box-shadow: 0 0 12px 2px rgba(16, 185, 129, 0.8); }
+}
+
+.tv-lounge-perks-box {
+  background: rgba(14, 20, 30, 0.85);
+  border: 1.5px solid rgba(212, 175, 55, 0.3);
+  backdrop-filter: blur(16px);
+  border-radius: 16px;
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tv-perk-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #CBD5E1;
+}
+
+.tv-perk-row b {
+  color: #FBBF24;
+}
+
+/* ========================================================
+   PHONG CÁCH THANH TOÁN SÁNG KEM (NHƯ TRANG ĐĂNG NHẬP)
+   ======================================================== */
+.screen-type-payment_qr.login-luxury-mode {
+  background-color: #E2CEBD !important;
+}
+
+.tv-pos-header.style-login {
+  background: linear-gradient(90deg, #FFFFFF 0%, #FFF8F1 60%, #FEF0E6 100%) !important;
+  border-bottom: 2px solid rgba(234, 88, 12, 0.25) !important;
+  box-shadow: 0 4px 20px rgba(180, 130, 90, 0.15) !important;
+}
+
+.tv-login-style-wrapper {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 30px 40px;
+  gap: 32px;
+  box-sizing: border-box;
+}
+
+/* CỘT TRÁI (BANNER / 6 TÍNH NĂNG GARA CHUẨN LOGIN) */
+.tv-login-left-banner {
+  flex: 1 1 60%;
+  max-width: 720px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.tv-login-left-banner .banner-glass-container {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1.5px solid rgba(255, 255, 255, 0.95);
+  border-radius: 26px;
+  padding: 32px 36px 24px;
+  box-shadow: 0 16px 40px rgba(180, 130, 90, 0.14);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  box-sizing: border-box;
+}
+
+.tv-login-left-banner .banner-header {
+  text-align: center;
+}
+
+.tv-login-left-banner .brand-logo-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.tv-login-left-banner .car-badge-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: #FFF3E0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(230, 81, 0, 0.15);
+}
+
+.tv-login-left-banner .brand-badge-text {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.tv-login-left-banner .brand-main {
+  font-size: 26px;
+  font-weight: 900;
+  color: #1E293B;
+  line-height: 1.1;
+}
+
+.tv-login-left-banner .brand-accent {
+  color: #E65100;
+  font-style: italic;
+}
+
+.tv-login-left-banner .brand-sub {
+  font-size: 10px;
+  font-weight: 700;
+  color: #64748B;
+  letter-spacing: 2px;
+}
+
+.tv-login-left-banner .banner-main-title {
+  margin: 6px 0 4px;
+  font-size: 25px;
+  font-weight: 800;
+  color: #0F172A;
+  letter-spacing: -0.3px;
+}
+
+.tv-login-left-banner .banner-sub-title {
+  margin: 0;
+  font-size: 14px;
+  color: #64748B;
+  font-weight: 500;
+}
+
+.tv-login-left-banner .banner-features-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 13px;
+}
+
+.tv-login-left-banner .feature-tile-card {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.98);
+  border-radius: 15px;
+  padding: 14px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+  transition: all 0.2s ease;
+}
+
+.tv-login-left-banner .feature-icon-box {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.tv-login-left-banner .feature-text-box {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tv-login-left-banner .feature-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1E293B;
+}
+
+.tv-login-left-banner .feature-desc {
+  font-size: 11px;
+  color: #64748B;
+  line-height: 1.3;
+}
+
+.tv-login-left-banner .banner-bottom-slogan {
+  text-align: center;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(203, 213, 225, 0.7);
+}
+
+.tv-login-left-banner .slogan-script {
+  font-size: 20px;
+  font-style: italic;
+  font-weight: 600;
+  color: #1E293B;
+  font-family: 'Georgia', 'Playfair Display', serif;
+  margin-bottom: 3px;
+}
+
+.tv-login-left-banner .slogan-caps {
+  font-size: 10px;
+  font-weight: 700;
+  color: #64748B;
+  letter-spacing: 2px;
+}
+
+/* CỘT PHẢI (THẺ CARD TRẮNG BO GÓC CHUẨN LOGIN) */
+.tv-login-right-panel {
+  flex: 0 0 38%;
+  max-width: 440px;
+  display: flex;
+  justify-content: center;
+}
+
+.tv-login-card {
+  width: 100%;
+  background: #FFFFFF;
+  border-radius: 28px;
+  padding: 28px 26px 20px;
+  box-shadow: 0 18px 45px rgba(160, 110, 70, 0.18);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  text-align: center;
+}
+
+.tv-login-card .card-brand-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.tv-login-card .card-car-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: #FFF3E0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tv-login-card .brand-name {
+  font-size: 20px;
+  font-weight: 900;
+  color: #1E293B;
+}
+
+.tv-login-card .brand-accent {
+  color: #E65100;
+  font-style: italic;
+}
+
+.tv-login-card .brand-sub {
+  font-size: 8.5px;
+  font-weight: 700;
+  color: #64748B;
+  letter-spacing: 1.5px;
+}
+
+.tv-login-card-heading {
+  margin-top: -4px;
+}
+
+.tv-login-card-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: #0F172A;
+  margin: 0 0 4px;
+}
+
+.tv-login-card-sub {
+  font-size: 12.5px;
+  color: #64748B;
+  margin: 0;
+}
+
+.tv-login-qr-center-box {
+  display: flex;
+  justify-content: center;
+}
+
+.tv-login-qr-frame {
+  background: #FFFFFF;
+  padding: 10px;
+  border-radius: 18px;
+  border: 1.5px solid #FED7AA;
+  box-shadow: 0 6px 20px rgba(234, 88, 12, 0.12);
+  display: inline-block;
+}
+
+.tv-login-qr-img {
+  width: 200px;
+  height: 200px;
+  object-fit: contain;
+  display: block;
+  border-radius: 10px;
+}
+
+.tv-login-bank-meta {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 14px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  text-align: left;
+}
+
+.tv-login-meta-item {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #475569;
+}
+
+.tv-login-meta-item .val {
+  font-weight: 700;
+  color: #0F172A;
+}
+
+.tv-login-meta-item .val.highlight {
+  color: #0284C7;
+}
+
+.tv-login-meta-item .val.acc-num {
+  font-size: 13.5px;
+  color: #EA580C;
+  letter-spacing: 0.8px;
+}
+
+.tv-login-quick-methods {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.tv-method-pill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: #F1F5F9;
+  border-radius: 20px;
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.tv-method-pill.active {
+  background: #FFF3E0;
+  border: 1px solid #FED7AA;
+  color: #C2410C;
+}
+
+.tv-login-btn-test {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: #F8FAFC;
+  border: 1px dashed #CBD5E1;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tv-login-btn-test:hover {
+  background: #FFF3E0;
+  border-color: #EA580C;
+  color: #EA580C;
+}
+
+.tv-login-card-footer {
+  border-top: 1px solid #F1F5F9;
+  padding-top: 10px;
+  font-size: 9.5px;
+  color: #64748B;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tv-login-card-footer .footer-copyright {
+  font-weight: 700;
+  color: #1E293B;
+  letter-spacing: 0.5px;
+}
+
+.tv-login-card-footer .footer-contact b {
+  color: #EA580C;
+}
+
+/* HÓA ĐƠN TRONG PHONG CÁCH SÁNG KEM LOGIN */
+.tv-invoice-card.style-login-card {
+  background: #FFFFFF !important;
+  border: 1px solid rgba(226, 206, 189, 0.5) !important;
+  box-shadow: 0 16px 40px rgba(180, 130, 90, 0.14) !important;
+  border-radius: 26px !important;
+}
+
+.tv-invoice-card.style-login-card .tv-plate-badge-pos {
+  background: #FFF3E0 !important;
+  border: 1.5px solid #FED7AA !important;
+}
+
+.tv-invoice-card.style-login-card .tv-plate-text {
+  color: #C2410C !important;
+  text-shadow: none !important;
+}
+
+.tv-invoice-card.style-login-card .tv-invoice-code b,
+.tv-invoice-card.style-login-card .tv-customer-meta-item b {
+  color: #0F172A !important;
+}
+
+.tv-invoice-card.style-login-card .tv-customer-meta-item span,
+.tv-invoice-card.style-login-card .tv-invoice-code span {
+  color: #64748B !important;
+}
+
+.tv-invoice-card.style-login-card .tv-invoice-table th {
+  background: #F8FAFC !important;
+  color: #475569 !important;
+  border-bottom: 2px solid #E2E8F0 !important;
+}
+
+.tv-invoice-card.style-login-card .tv-invoice-tr {
+  border-bottom: 1px solid #F1F5F9 !important;
+}
+
+.tv-invoice-card.style-login-card .tv-invoice-tr:nth-child(even) {
+  background: #FCFBF9;
+}
+
+.tv-invoice-card.style-login-card .tv-td-name .tv-item-title {
+  color: #0F172A !important;
+}
+
+.tv-invoice-card.style-login-card .tv-td-price,
+.tv-invoice-card.style-login-card .tv-td-qty {
+  color: #64748B !important;
+}
+
+.tv-invoice-card.style-login-card .tv-td-amount {
+  color: #0F172A !important;
+  font-weight: 700 !important;
+}
+
+.tv-invoice-card.style-login-card .tv-invoice-footer-box {
+  background: #FFFBF7 !important;
+  border: 1px solid #FED7AA !important;
+}
+
+.tv-invoice-card.style-login-card .tv-summary-row span {
+  color: #475569 !important;
+}
+
+.tv-invoice-card.style-login-card .tv-summary-row b {
+  color: #0F172A !important;
+}
+
+.tv-invoice-card.style-login-card .tv-grand-label {
+  color: #1E293B !important;
+}
+
+.tv-invoice-card.style-login-card .tv-grand-amount {
+  color: #EA580C !important;
+  text-shadow: none !important;
+}
+
+.tv-invoice-card.style-login-card .tv-amount-in-words {
+  color: #64748B !important;
+}
+
+.tv-invoice-card.style-login-card .tv-amount-in-words em {
+  color: #C2410C !important;
+}
+
+.tv-payment-qr-column.style-login-column .tv-vietqr-box {
+  background: #FFFFFF !important;
+  border: 1px solid rgba(226, 206, 189, 0.5) !important;
+  box-shadow: 0 16px 40px rgba(180, 130, 90, 0.14) !important;
+  border-radius: 26px !important;
+}
+
+.tv-payment-qr-column.style-login-column .tv-payment-status-card {
+  background: #FFFFFF !important;
+  border: 1px solid #FED7AA !important;
+  box-shadow: 0 8px 24px rgba(234, 88, 12, 0.1) !important;
+}
+
+.tv-payment-qr-column.style-login-column .tv-radar-meta b {
+  color: #C2410C !important;
+}
+
+.tv-payment-qr-column.style-login-column .tv-radar-meta span {
+  color: #64748B !important;
+}
+
+.tv-payment-qr-column.style-login-column .tv-perk-pill {
+  background: #FFFFFF !important;
+  border: 1px solid #E2E8F0 !important;
+  color: #334155 !important;
+}
+
+/* ========================================================
+   MÀN HÌNH 1: QUẢNG CÁO & KHUYẾN MÃI SHOWROOM (GRAND ADVERTISING)
+   ======================================================== */
+.tv-fullscreen-ad-layout {
+  display: grid;
+  grid-template-columns: 1.8fr 1fr;
+  gap: 24px;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.tv-ad-hero-card {
+  position: relative;
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  background: #0B0E14;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.tv-ad-hero-media {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.tv-ad-hero-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  animation: kenBurnsZoom 18s alternate infinite ease-in-out;
+  transition: opacity 0.8s ease-in-out;
+}
+
+@keyframes kenBurnsZoom {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.08); }
+}
+
+.tv-ad-hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.25) 0%, rgba(15, 23, 42, 0.45) 45%, rgba(10, 14, 23, 0.92) 100%);
+  pointer-events: none;
+}
+
+.tv-ad-top-badges {
+  position: absolute;
+  top: 20px;
+  left: 24px;
+  right: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  z-index: 5;
+}
+
+.tv-ad-badge-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 30px;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.tv-ad-badge-item.pulse {
+  background: rgba(234, 88, 12, 0.9);
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.tv-ad-badge-item.blur {
+  background: rgba(15, 23, 42, 0.75);
+  color: #E2E8F0;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.tv-ad-slide-counter {
+  margin-left: auto;
+  background: rgba(0, 0, 0, 0.65);
+  color: #FFFFFF;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 800;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.tv-ad-hero-content {
+  position: absolute;
+  bottom: 38px;
+  left: 28px;
+  right: 28px;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tv-ad-brand-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(8px);
+  padding: 4px 12px;
+  border-radius: 20px;
+  color: #FED7AA;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  width: fit-content;
+}
+
+.tv-ad-hero-title {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+  color: #FFFFFF;
+  text-shadow: 0 3px 12px rgba(0, 0, 0, 0.6);
+  line-height: 1.15;
+}
+
+.tv-ad-hero-sub {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 500;
+  color: #E2E8F0;
+  line-height: 1.4;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.tv-ad-perks-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.tv-ad-perk-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #F8FAFC;
+}
+
+.tv-ad-slide-indicators {
+  position: absolute;
+  bottom: 12px;
+  left: 28px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 6;
+}
+
+.tv-ad-indicator-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.35);
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s;
+  padding: 0;
+}
+
+.tv-ad-indicator-dot.active {
+  width: 32px;
+  background: #EA580C;
+  box-shadow: 0 0 12px #EA580C;
+}
+
+/* CỘT PHẢI: GÓI KHUYẾN MÃI SHOWROOM */
+.tv-ad-promos-column {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  height: 100%;
+  overflow: hidden;
+}
+
+.tv-ad-promos-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 6px;
+}
+
+.tv-ad-promos-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tv-ad-promos-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  color: #F8FAFC;
+  text-transform: uppercase;
+}
+
+.tv-ad-promos-tag {
+  background: rgba(245, 158, 11, 0.2);
+  color: #FBBF24;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.tv-ad-promos-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: hidden;
+}
+
+.tv-ad-promo-card {
+  position: relative;
+  background: rgba(15, 23, 42, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 12px 14px;
+  backdrop-filter: blur(16px);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: transform 0.2s, border-color 0.2s;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+}
+
+.tv-ad-promo-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(234, 88, 12, 0.5);
+}
+
+.tv-ad-promo-badge {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  color: #FFFFFF;
+  font-size: 9.5px;
+  font-weight: 900;
+  letter-spacing: 0.4px;
+}
+
+.tv-ad-promo-name {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 800;
+  color: #FFFFFF;
+  padding-right: 80px;
+}
+
+.tv-ad-promo-desc {
+  margin: 0;
+  font-size: 11.5px;
+  color: #94A3B8;
+  line-height: 1.3;
+}
+
+.tv-ad-promo-price-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.tv-ad-old-price {
+  font-size: 11px;
+  color: #64748B;
+  text-decoration: line-through;
+}
+
+.tv-ad-sale-price {
+  font-size: 15px;
+  font-weight: 900;
+  color: #F97316;
+  text-shadow: 0 0 10px rgba(249, 115, 22, 0.3);
+}
+
+.tv-ad-promo-perk {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #38BDF8;
+  background: rgba(56, 189, 248, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  padding: 3px 8px;
+  border-radius: 6px;
+  width: fit-content;
+  margin-top: 2px;
+}
+
+.tv-ad-booking-box {
+  background: linear-gradient(135deg, #FFF7ED 0%, #FED7AA 100%);
+  border-radius: 16px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 8px 24px rgba(234, 88, 12, 0.2);
+  border: 1.5px solid #FDBA74;
+}
+
+.tv-booking-left {
+  display: flex;
+  flex-direction: column;
+}
+
+.tv-booking-label {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: #9A3412;
+}
+
+.tv-booking-phone {
+  font-size: 18px;
+  font-weight: 900;
+  color: #C2410C;
+  letter-spacing: 0.5px;
+}
+
+.tv-booking-qr {
+  background: #FFFFFF;
+  padding: 5px;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* NÚT CHUYỂN ĐỔI CHẾ ĐỘ Ở HEADER TV */
+.tv-header-toggle-btn {
+  background: rgba(255, 255, 255, 0.2);
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s;
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tv-header-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.35);
+  transform: translateY(-1px);
+}
+
+.tv-fs-action-btn {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #FFFFFF;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tv-fs-action-btn:hover {
+  background: rgba(0, 0, 0, 0.45);
+}
+
+
+

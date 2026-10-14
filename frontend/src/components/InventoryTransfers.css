@@ -1,0 +1,602 @@
+/* ==========================================================================
+   KAZUKO AUTO - MODAL CHUYỂN KHO GIỮA CHI NHÁNH
+   Thiết kế giao diện chuẩn Garage Hiện Đại, Sang Trọng, Tiện Dụng
+   ========================================================================== */
+
+.transfer-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10500;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  box-sizing: border-box;
+  animation: transferModalFadeIn 0.2s ease-out;
+}
+
+@keyframes transferModalFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes transferModalZoomIn {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.transfer-modal-container {
+  background: #ffffff;
+  width: min(1120px, 96vw);
+  max-height: 92vh;
+  border-radius: 16px;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(226, 232, 240, 0.8);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: transferModalZoomIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  color: #1e293b;
+  font-family: inherit;
+}
+
+/* ===== 1. HEADER ===== */
+.transfer-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 24px;
+  background: linear-gradient(135deg, #fff7ed 0%, #fffdfa 60%, #ffffff 100%);
+  border-bottom: 1px solid #fed7aa;
+  flex-shrink: 0;
+}
+
+.transfer-modal-header-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.transfer-modal-header-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #ea580c, #c2410c);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(234, 88, 12, 0.28);
+  flex-shrink: 0;
+}
+
+.transfer-modal-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+}
+
+.transfer-modal-subtitle {
+  margin: 3px 0 0;
+  font-size: 12.5px;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.transfer-modal-close-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: #64748b;
+  cursor: pointer;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.transfer-modal-close-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #e2e8f0;
+}
+
+/* ===== 2. BODY & CONTENT ===== */
+.transfer-modal-body {
+  padding: 20px 24px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Rule notice */
+.transfer-notice {
+  background: #fff8eb;
+  border: 1px solid #fed7aa;
+  border-radius: 10px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: #9a3412;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.transfer-notice svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* Alert Error */
+.transfer-alert-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+}
+
+/* ===== 3. TABLE VIEW (DANH SÁCH PHIẾU) ===== */
+.transfer-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.transfer-search-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.transfer-search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 0 10px;
+  min-width: 220px;
+  transition: all 0.15s ease;
+}
+
+.transfer-search-box:focus-within {
+  border-color: #ea580c;
+  box-shadow: 0 0 0 2px rgba(234, 88, 12, 0.12);
+}
+
+.transfer-search-box input {
+  border: 0;
+  outline: none;
+  font-size: 12.5px;
+  color: #1e293b;
+  padding: 7px 0;
+  width: 100%;
+  background: transparent;
+}
+
+.transfer-filter-select {
+  padding: 7px 10px;
+  font-size: 12.5px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #334155;
+  outline: none;
+}
+
+.transfer-filter-select:focus {
+  border-color: #ea580c;
+}
+
+/* Table Style */
+.transfer-table-wrap {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  background: #ffffff;
+}
+
+.transfer-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  text-align: left;
+}
+
+.transfer-table thead th {
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 600;
+  padding: 11px 14px;
+  border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.transfer-table tbody tr {
+  border-bottom: 1px solid #f1f5f9;
+  transition: background 0.12s ease;
+}
+
+.transfer-table tbody tr:hover {
+  background: #fffbf7;
+}
+
+.transfer-table td {
+  padding: 10px 14px;
+  vertical-align: middle;
+  color: #1e293b;
+}
+
+.transfer-table-empty {
+  text-align: center;
+  padding: 36px 16px !important;
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+/* Badges */
+.transfer-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 20px;
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.transfer-badge.draft {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+.transfer-badge.sent {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.transfer-badge.partial {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+}
+
+.transfer-badge.received {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.transfer-badge.cancelled {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+/* Row Action Buttons */
+.transfer-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: center;
+}
+
+.transfer-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.transfer-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.transfer-action-btn.send {
+  background: #fff7ed;
+  color: #ea580c;
+  border-color: #fed7aa;
+}
+
+.transfer-action-btn.send:hover:not(:disabled) {
+  background: #ea580c;
+  color: #ffffff;
+  border-color: #ea580c;
+}
+
+.transfer-action-btn.cancel {
+  background: #ffffff;
+  color: #dc2626;
+  border-color: #fca5a5;
+}
+
+.transfer-action-btn.cancel:hover:not(:disabled) {
+  background: #fef2f2;
+  border-color: #ef4444;
+}
+
+.transfer-action-btn.receive {
+  background: #f0fdf4;
+  color: #16a34a;
+  border-color: #bbf7d0;
+}
+
+.transfer-action-btn.receive:hover:not(:disabled) {
+  background: #16a34a;
+  color: #ffffff;
+  border-color: #16a34a;
+}
+
+/* ===== 4. FORM TẠO PHIẾU CHUYỂN KHO ===== */
+.transfer-form-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.transfer-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 12px;
+}
+
+.transfer-card-title {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.transfer-card-title svg {
+  color: #ea580c;
+}
+
+/* Grid Thông tin Kho */
+.transfer-warehouse-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.transfer-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.transfer-form-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.transfer-form-label .required {
+  color: #dc2626;
+}
+
+.transfer-select,
+.transfer-input {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 12.5px;
+  color: #1e293b;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  outline: none;
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+}
+
+.transfer-select:focus,
+.transfer-input:focus {
+  border-color: #ea580c;
+  box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.12);
+}
+
+/* Danh sách mặt hàng chuyển */
+.transfer-items-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.transfer-items-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.transfer-items-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.transfer-items-table thead th {
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 600;
+  padding: 9px 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.transfer-items-table td {
+  padding: 8px 10px;
+  border: 1px solid #e2e8f0;
+  vertical-align: middle;
+}
+
+.transfer-btn-add-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border: 1px dashed #ea580c;
+  background: #fffaf5;
+  color: #ea580c;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  align-self: flex-start;
+}
+
+.transfer-btn-add-item:hover {
+  background: #ffedd5;
+  border-style: solid;
+}
+
+.transfer-btn-remove-item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  border: 1px solid #fecaca;
+  background: #fff;
+  color: #dc2626;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.transfer-btn-remove-item:hover {
+  background: #fee2e2;
+  border-color: #ef4444;
+}
+
+/* Button variants */
+.transfer-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.transfer-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.transfer-btn-primary {
+  background: linear-gradient(135deg, #ea580c, #c2410c);
+  color: #ffffff;
+  border-color: #c2410c;
+  box-shadow: 0 2px 4px rgba(234, 88, 12, 0.2);
+}
+
+.transfer-btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #f97316, #ea580c);
+  box-shadow: 0 4px 10px rgba(234, 88, 12, 0.32);
+  transform: translateY(-1px);
+}
+
+.transfer-btn-ghost {
+  background: #ffffff;
+  color: #475569;
+  border-color: #cbd5e1;
+}
+
+.transfer-btn-ghost:hover:not(:disabled) {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+/* ===== 5. FOOTER ===== */
+.transfer-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 24px;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  flex-shrink: 0;
+}
+
+.transfer-footer-stats {
+  font-size: 12.5px;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.transfer-footer-stats strong {
+  color: #0f172a;
+}
+
+/* Responsiveness */
+@media (max-width: 768px) {
+  .transfer-warehouse-grid {
+    grid-template-columns: 1fr;
+  }
+  .transfer-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .transfer-search-group {
+    width: 100%;
+  }
+  .transfer-modal-header,
+  .transfer-modal-body,
+  .transfer-modal-footer {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+}

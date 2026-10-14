@@ -1,0 +1,69 @@
+# Dependencies
+node_modules/
+backend/node_modules/
+frontend/node_modules/
+
+# Production build
+dist/
+frontend/dist/
+frontend/public/part-image-model/
+print-agent/installer-output/
+print-agent/dist/
+print-agent/.build-stage/
+
+# Environment and sensitive files
+.env
+.env.local
+*.log
+backend/system-config-templates-backup-*.json
+backend/sales-print-visibility-backup-*.json
+backend/*backup*.json
+backend/*-backup-*.json
+backend/scratch_*.js
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# OS and Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Local print verification contains business data
+backend/print-verification/
+backend/tools/.dotnet-home/
+backend/tools/.nuget-packages/
+backend/tools/fastreport-renderer/bin/
+backend/tools/fastreport-renderer/obj/
+backend/tools/fastreport-designer/bin/
+backend/tools/fastreport-designer/obj/
+backend/tools/fastreport-designer/.vs/
+backend/tools/part-background-check.jpg
+bin/
+obj/
+*.user
+backend/tmp/
+backend/storage/print-template-backups/
+
+backend/storage/security/
+backend/storage/notifications/
+*.fdb
+*.FDB
+*.fbk
+*.FBK
+backend/saas-test-results/
+backend/saas/
+backend/storage/relocation-backup-*/
+ops/windows/generated/
+frontend/*.png
+!frontend/test_car.png
+
+# Collected local QA artifacts and database migration backups
+Test/artifacts/
+Test/firebird/*backup*.json
+Test/firebird/tmp/
+Test/firebird/scratch_*.js

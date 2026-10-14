@@ -1,0 +1,284 @@
+const branchSql=require('../branchSql');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const db = require('../db.js');
+const { applyCompanyLogo } = require('./companyLogo.js');
+const { decodeConfigImage } = require('./configImageStorage.js');
+const { mapLegacyMoneyWords } = require('./legacyPrintExpressions.js');
+const { documentTypes } = require('./garagePrintCatalog.js');
+const { templateFilter, templateOptions } = require('./systemConfigOptions.js');
+const { company, clean, prefixed, runRenderer, fillMissingVariables, buildSalesPayload } = require('./salesPrint.js');
+const permissionCodes = {
+  MauBaoGiaBaoHanh:['WARRANTY'],MauLenhBaoHanh:['WARRANTY'],MauBanGiaoBaoHanh:['WARRANTY'],MauHoaDonBaoHanh:['WARRANTY'],
+  MauPhieuTiepNhan:['REPAIR'], MauPhieuSuaChua:['REPAIR'], MauPhieuTamTinh:['REPAIR'], MauBaoGia:['REPAIR'], MauPhieuBanGiao:['REPAIR'],
+  MauHoaDonSuaChua:['REPAIR','FINANCE'], MauPhieuBaoHanh:['WARRANTY'], MauHoaDonBanHang:['SALES'],
+  MauPhieuNhapKho:['INVENTORY'], MauPhieuXuatKho:['INVENTORY','REPAIR'], MauPhieuThu:['FINANCE'], MauPhieuChi:['FINANCE'],
+  MauMaVachPhuTung:['INVENTORY'], MauBangLuong:['PAYROLL'], MauBaoCao:['REPORTS'],
+  MauHoSoXe:['VEHICLES'], MauLichSuSuaChua:['VEHICLES','REPAIR'], MauCongNoKhachHang:['FINANCE'], MauCongNoNhaCungCap:['FINANCE'],
+};
+const textTypes = new Set(['MauPhieuTiepNhan','MauPhieuBanGiao','MauPhieuBaoHanh','MauHoSoXe','MauLichSuSuaChua']);
+const money = value => `${Number(value || 0).toLocaleString('vi-VN')} đ`;
+const date = value => value && !Number.isNaN(new Date(value).getTime()) ? new Date(value).toLocaleDateString('vi-VN',{timeZone:'Asia/Bangkok'}) : '';
+const fail = (message,status=400) => Object.assign(new Error(message),{status});
+const types = documentTypes.map(type => ({ ...type, codes: permissionCodes[type.key], layout: textTypes.has(type.key) ? 'text' : type.key==='MauMaVachPhuTung' ? 'barcode' : 'money' }));
+function permitted(user,type) { return Number(user?.ISADMIN)===1 || (type.codes.some(code => (Number(user?.permissions?.[code]||0)&17)===17) && (type.key!=='MauPhieuNhapKho' || require('../permissionPolicy.js').has(user,'COST')) && (type.key!=='MauBangLuong' || require('../permissionPolicy.js').has(user,'EMPLOYEES'))); }
+function typeByKey(key) { const type=types.find(item=>item.key===key); if(!type)throw fail('Loại bản in không hợp lệ.');return type; }
+function range(from,to) {
+  for(const value of [from,to]) if(value && (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(value)) || new Date(value).toISOString().slice(0,10)!==value))throw fail('Khoảng ngày không hợp lệ.');
+  if(from&&to&&from>to)throw fail('Ngày bắt đầu phải trước ngày kết thúc.');
+  return [from||'2000-01-01',to||'2100-12-31'];
+}
+function sourceFor(type) {
+  if(['MauPhieuBanGiao','MauPhieuXuatKho'].includes(type.key))return 'TLENHSUACHUA';
+  if(['MauHoSoXe','MauLichSuSuaChua'].includes(type.key))return 'DXE';
+  return type.table;
+}
+async function records(type,search='') {
+  if(require('./warrantyPrint').supports(type.key))return (await require('./warrantyJobs').list()).filter(row=>(type.key!=='MauBanGiaoBaoHanh'||Number(row.TRANGTHAI)>=3)&&(type.key!=='MauHoaDonBaoHanh'||!!row.HOADONID)&&(!search||[row.NAME,row.BIENSO,row.TEN_KH].some(value=>String(value||'').toLowerCase().includes(search.toLowerCase()))));
+  if(type.key==='MauBaoCao')return [{ID:'summary',NAME:'Tổng hợp doanh thu sửa chữa và bán phụ tùng'}];
+  const table=sourceFor(type);const name=table==='DXE'?'BIENSO':'NAME';
+  const restriction=type.key==='MauPhieuThu'?' AND LOAI=0':type.key==='MauPhieuChi'?' AND LOAI=1':type.key==='MauPhieuBanGiao'?' AND TRANGTHAI IN (3,4,5)':type.key==='MauPhieuXuatKho'?` AND EXISTS (SELECT 1 FROM ${branchSql.table('TXUATPHUTUNG')} xp WHERE xp.TLENHSUACHUAID=PRINTROOT.ID AND COALESCE(xp.STATUS,0)>=0)`:'';
+  const searchWhere=search ? ` AND (UPPER(${name}) CONTAINING UPPER(?) OR ID=?)` : '';
+  const rows=await db.query(`SELECT FIRST 100 ID,${name} AS NAME FROM ${branchSql.table(table)} PRINTROOT WHERE COALESCE(STATUS,0)>=0${restriction}${searchWhere} ORDER BY TIMECREATED DESC`,search?[search,search]:[]);
+  return rows;
+}
+const related = async(table,id)=>id?(await db.query(`SELECT * FROM ${branchSql.table(table)} WHERE ID=?`,[id]))[0]||null:null;
+async function details(table,foreign,id) {
+  const rows=await db.query(`SELECT ct.*,m.NAME AS PART_NAME,m.CODE AS PART_CODE,d.NAME AS SERVICE_NAME,u.NAME AS UNIT_NAME
+    FROM ${branchSql.table(table)} ct LEFT JOIN DMATHANG m ON m.ID=ct.DMATHANGID LEFT JOIN DDICHVU d ON d.ID=ct.DDICHVUID
+    LEFT JOIN DDONVITINH u ON u.ID=ct.DDONVITINHID WHERE ct.${foreign}=? AND COALESCE(ct.STATUS,0)>=0 ORDER BY ct.TIMECREATED`,[id]);
+  return rows.map(row=>({...clean(row),ItemName:row.PART_NAME||row.SERVICE_NAME||row.NOTE||'Hạng mục chưa khai báo tên',ItemCode:row.PART_CODE||'',Unit:row.UNIT_NAME||'',
+    Quantity:Number(row.SOLUONG||0),UnitPrice:Number(row.DONGIA||0),Amount:Number(row.THANHTIEN||0),Note:row.NOTE||''}));
+}
+function monetaryRows(rows) {
+ return rows.map((row,index)=>({...row,Index:String(index+1),ItemName:row.ItemName||row.NAME||'',ItemCode:row.ItemCode||'',Unit:row.Unit||'',
+ QuantityText:row.Quantity==null?'':String(row.Quantity),UnitPriceText:row.UnitPrice==null?'':money(row.UnitPrice),AmountText:row.Amount==null?'':money(row.Amount),
+ ValueText:row.ValueText||'',Note:row.Note||row.NOTE||'',
+ DMATHANG_NAME:row.ItemName||row.NAME||'',DMATHANG_CODE:row.ItemCode||'',DDICHVU_NAME:row.SERVICE_NAME||'',DDONVITINH_NAME:row.Unit||'',
+ SOLUONG:row.Quantity??row.SOLUONG??0,SLNHAPCHUAQUYDOI:row.SLNHAPCHUAQUYDOI??row.Quantity??0,SLXUATCHUAQUYDOI:row.SLXUATCHUAQUYDOI??row.Quantity??0,DONGIA:row.UnitPrice??0,THANHTIEN:row.Amount??0}));
+}
+async function payload(type,id,filters,user) {
+ const [from,to]=range(filters.from,filters.to);
+ let header={},rows=[],customer=null,vehicle=null,supplier=null,employee=null,warehouse=null,extra='',reception={};
+ if(require('./warrantyPrint').supports(type.key)){
+  await require('./warrantyJobs').ensure();header=await require('./warrantyJobs').get(id);
+  if(type.key==='MauBanGiaoBaoHanh'&&![3,4].includes(Number(header.TRANGTHAI)))throw fail('Phiếu chưa giao xe để in bàn giao bảo hành.',409);
+  vehicle=await related('DXE',header.DXEID);customer=await related('DKHACHHANG',vehicle?.DKHACHHANGID);warehouse=await related('DKHOHANG',header.DKHOHANGID);
+  rows=header.items.map(line=>({ItemName:line.NAME,Unit:line.UNITNAME,Quantity:Number(line.SOLUONG),UnitPrice:Number(line.DONGIA),Amount:Number(line.THANHTIEN),Note:(line.KIND==='warranty'?'Hạng mục bảo hành · không thu phí':'Hạng mục bổ sung có phí')+(Number(line.TILECHIETKHAU)?` · CK ${line.TILECHIETKHAU}%: ${money(Number(line.THANHTIEN)-Number(line.TIENCHIETKHAU||0))}`:'')+(line.NOTE?` · ${line.NOTE}`:'')}));
+  if(header.HOADONID){const invoice=await related('THOADONSUACHUA',header.HOADONID);if(invoice)Object.assign(header,{TIENMAT:invoice.TIENMAT,CHUYENKHOAN:invoice.CHUYENKHOAN,THE:invoice.THE,CONLAI:invoice.CONLAI,CONGNO:invoice.CONGNO,InvoiceNumber:invoice.NAME});}
+  extra=`Trạng thái: ${['Tiếp nhận','Xác nhận bảo hành','Đang bảo hành','Giao xe','Hoàn thành'][Number(header.TRANGTHAI)]}. Chi phí phát sinh: ${money(header.TONGCONG)}.`;
+  if(type.key==='MauHoaDonBaoHanh'){if(!header.HOADONID)throw fail('Phiếu chưa có hóa đơn thanh toán bảo hành.',409);extra+=' Phiếu xử lý: '+header.NAME;header.NAME=header.InvoiceNumber;}
+  delete header.items;
+ }else if(type.key==='MauHoaDonBanHang'){
+  const result=filters.draft?await require('./salesDraftPrint').payload(filters.draft,user):await buildSalesPayload(id,user);header=result.parameters;if(Number(header.STATUS)<0)throw fail('Phiếu bán hàng không còn sử dụng.',404);rows=result.tables.Table0.map(row=>({...row,ItemName:row.DMATHANG_NAME,Unit:row.DDONVITINH_NAME,Quantity:row.SLXUAT,UnitPrice:row.DONGIA,Amount:row.THANHTIEN}));
+ }else if(type.key==='MauBaoCao'){
+  if(id!=='summary')throw fail('Chọn báo cáo tổng hợp hợp lệ.');
+  const sales=await db.query(`SELECT NAME,NGAY,TONGCONG,TIENGIAMGIA FROM ${branchSql.table('TDONHANG')} WHERE STATUS=1 AND CAST(NGAY AS DATE) BETWEEN ? AND ? ORDER BY NGAY`,[from,to]);
+  const repairs=await db.query(`SELECT NAME,NGAY,TONGCONG,CONLAI,DATHANHTOAN FROM ${branchSql.table('THOADONSUACHUA')} WHERE STATUS=1 AND CAST(NGAY AS DATE) BETWEEN ? AND ? ORDER BY NGAY`,[from,to]);
+  rows=[...repairs.map(row=>({ItemName:`Sửa chữa - ${row.NAME}`,Amount:Number(row.TONGCONG||0),Note:`${date(row.NGAY)}; còn lại: ${money(row.CONLAI)}`})),...sales.map(row=>({ItemName:`Bán phụ tùng - ${row.NAME}`,Amount:Number(row.TONGCONG||0),Note:date(row.NGAY)}))];
+  header={NAME:'BC-DOANHTHU',NGAY:new Date().toISOString(),NOTE:`Từ ${from} đến ${to}`,TONGCONG:rows.reduce((sum,row)=>sum+row.Amount,0)};
+ }else{
+  const table=sourceFor(type);header=clean(await related(table,id)||{});if(!header.ID||Number(header.STATUS)<0)throw fail('Không tìm thấy bản ghi đã lưu để in.',404);
+  if(type.key==='MauPhieuThu'&&Number(header.LOAI)!==0||type.key==='MauPhieuChi'&&Number(header.LOAI)!==1)throw fail('Phiếu không đúng loại thu/chi.',404);
+  if(type.key==='MauHoSoXe'||type.key==='MauLichSuSuaChua'){vehicle=header;customer=await related('DKHACHHANG',header.DKHACHHANGID);}
+  else{vehicle=await related('DXE',header.DXEID);customer=await related('DKHACHHANG',header.DKHACHHANGID||vehicle?.DKHACHHANGID);}
+  supplier=await related('DNHACUNGCAP',header.DNHACUNGCAPID);employee=await related('DNHANVIEN',header.DNHANVIENID);warehouse=await related('DKHOHANG',header.DKHOHANGID);
+  switch(type.key){
+   case 'MauPhieuTiepNhan': {
+    const advisor=await related('DNHANVIEN',header.DNHANVIENCOOVANID);const technician=await related('DNHANVIEN',header.DNHANVIENKTVID);
+    const brand=await related('DHANGXE',vehicle?.DHANGXEID);const model=await related('DDONGXE',vehicle?.DDONGXEID);
+    const [email]=await db.query("SELECT TEXTVALUE FROM SCONFIG WHERE NAME='CompanyEmail' AND STATUS=30");
+    reception={CompanyEmail:email?.TEXTVALUE||'',CustomerAddress:customer?.DIACHI||'',
+     VehicleDescription:[brand?.NAME,model?.NAME,vehicle?.PHIENBAN,vehicle?.NAMSANXUAT].filter(Boolean).join(' '),
+     VehicleVin:vehicle?.SOKHUNG||'',VehicleEngine:vehicle?.SOMAY||'',VehicleOdo:String(header.ODO??vehicle?.ODO??''),
+     VehicleFuel:String(header.MUCNHIENLIEU??vehicle?.MUCNHIENLIEU??''),AdvisorName:advisor?.NAME||'',TechnicianName:technician?.NAME||'',
+     ReceptionTime:header.NGAY?new Date(header.NGAY).toLocaleString('vi-VN',{timeZone:'Asia/Bangkok'}):''};
+    rows=[{ItemName:'Tình trạng xe',ValueText:header.TINHTRANGXE||''},{ItemName:'Yêu cầu khách hàng',ValueText:header.YEUCAUKHACH||''},{ItemName:'Phụ kiện trên xe',ValueText:header.PHUKIENDETRENKXE||''},{ItemName:'Số km / nhiên liệu',ValueText:`${reception.VehicleOdo} / ${reception.VehicleFuel}`},{ItemName:'Cố vấn / kỹ thuật viên',ValueText:[advisor?.NAME,technician?.NAME].filter(Boolean).join(' / ')}];break;
+   }
+   case 'MauPhieuSuaChua':case 'MauPhieuTamTinh':case 'MauPhieuBanGiao':
+    rows=await details('TLENHSUACHUACHITIET','TLENHSUACHUAID',id);
+    if(type.key==='MauPhieuSuaChua'||type.key==='MauPhieuTamTinh'){
+     const [invoice]=await db.query(`SELECT FIRST 1 TILETHUE,TIENTHUE,TILEPHIDICHVU,PHIDICHVU,TILEGIAMGIA,TIENGIAMGIA,TONGCONG,TAXSUMMARY,CHARGEVERSION FROM ${branchSql.table('THOADONSUACHUA')} WHERE TLENHSUACHUAID=? AND STATUS=1 ORDER BY NGAY DESC,TIMECREATED DESC`,[id]);
+     if(invoice)header={...header,...invoice};
+     else if(Number(header.CHARGEVERSION)!==1 && (header.TILETHUE!=null||header.TILEPHIDICHVU!=null||Number(header.TRANGTHAI)!==3)){
+      const charges=require('./defaultChargeRates.js');
+      const defaults=header.TILETHUE==null||header.TILEPHIDICHVU==null?await charges.load():{taxRate:0,serviceRate:0};
+      const rates=charges.resolve(header,defaults);
+      const totals=charges.calculate(rows.reduce((sum,row)=>sum+Number(row.Amount||0),0),rates);
+      header={...header,TILETHUE:rates.taxRate,TILEPHIDICHVU:rates.serviceRate,TIENTHUE:totals.tax,PHIDICHVU:totals.serviceFee,TONGCONG:totals.total};
+     }
+    }
+    if(type.key==='MauPhieuTamTinh')extra='Phiếu tạm tính - chưa xác nhận thanh toán.';
+    if(type.key==='MauPhieuBanGiao'){
+     if(![3,4,5].includes(Number(header.TRANGTHAI)))throw fail('Lệnh sửa chữa chưa hoàn thành để in biên bản bàn giao.',409);
+     rows=rows.map(row=>({...row,ValueText:`${row.Quantity} ${row.Unit}`,Note:row.Note}));extra=`Ngày hoàn thành: ${date(header.KETTHUC)}; QC: ${header.NGUOIQC||''}`;
+    }break;
+   case 'MauBaoGia': {
+    rows=await details('TBAOGIACHITIET','TBAOGIAID',id);
+    // Quotes retain the original total even after declined repair lines are removed.
+    if(header.TONGCONG!=null && header.TIENHANG!=null)header.PHIDICHVU=Math.max(0,Math.round((Number(header.TONGCONG)-Number(header.TIENHANG)+Number(header.TIENGIAMGIA || 0)-Number(header.TIENTHUE || 0)-Number(header.PHIVANCHUYEN || 0))*100)/100);
+    const [fax]=await db.query("SELECT TEXTVALUE FROM SCONFIG WHERE NAME='CompanyFax' AND STATUS=30");
+    reception.CompanyFax=fax?.TEXTVALUE||'';
+    header={...header,TENKHACH:header.TENKHACH||customer?.NAME||'',DIACHI:header.DIACHI||customer?.DIACHI||'',DIENTHOAI:header.DIENTHOAI||customer?.DIENTHOAI||'',
+     TILEGIAMGIA:Number(header.TILEGIAMGIA||0),PHIVANCHUYEN:Number(header.PHIVANCHUYEN||0)};break;
+   }
+   case 'MauHoaDonSuaChua':rows=header.TLENHSUACHUAID?await details('TLENHSUACHUACHITIET','TLENHSUACHUAID',header.TLENHSUACHUAID):[{ItemName:'Phụ tùng',Amount:Number(header.TIENPHUTUNG||0)},{ItemName:'Tiền công',Amount:Number(header.TIENCONG||0)},{ItemName:'Dịch vụ',Amount:Number(header.TIENDICHVU||0)}];extra=`Đã thu: ${money(Number(header.TIENMAT||0)+Number(header.CHUYENKHOAN||0)+Number(header.THE||0))}; còn lại: ${money(header.CONLAI)}`;break;
+   case 'MauPhieuNhapKho': {
+    const items=await db.query(`SELECT ct.*,m.NAME AS PART_NAME,m.CODE AS PART_CODE,u.NAME AS UNIT_NAME FROM ${branchSql.table('TNHAPKHOCHITIET')} ct LEFT JOIN DMATHANG m ON m.ID=ct.DMATHANGID LEFT JOIN DDONVITINH u ON u.ID=ct.DDONVITINHID WHERE ct.TNHAPKHOID=? ORDER BY ct.TIMECREATED`,[id]);
+    rows=items.map(row=>({...clean(row),ItemName:row.PART_NAME||'',ItemCode:row.PART_CODE||'',Unit:row.UNIT_NAME||'',Quantity:Number(row.SOLUONG||0),UnitPrice:Number(row.DONGIA||0),Amount:Number(row.THANHTIEN||0)}));break;
+   }
+   case 'MauPhieuXuatKho': {
+    const items=await db.query(`SELECT xp.*,m.NAME AS PART_NAME,m.CODE AS PART_CODE,u.NAME AS UNIT_NAME,nv.NAME AS STAFF_NAME,k.NAME AS WAREHOUSE_NAME FROM ${branchSql.table('TXUATPHUTUNG')} xp LEFT JOIN DMATHANG m ON m.ID=xp.DMATHANGID LEFT JOIN DDONVITINH u ON u.ID=m.DDONVITINHID LEFT JOIN ${branchSql.table('DNHANVIEN')} nv ON nv.ID=xp.DNHANVIENID LEFT JOIN ${branchSql.table('DKHOHANG')} k ON k.ID=xp.DKHOHANGID WHERE xp.TLENHSUACHUAID=? AND COALESCE(xp.STATUS,0)>=0 ORDER BY xp.NGAYXUAT`,[id]);
+    rows=items.map(row=>({...clean(row),ItemName:row.PART_NAME||'',ItemCode:row.PART_CODE||'',Unit:row.UNIT_NAME||'',Quantity:Number(row.SOLUONG||0),UnitPrice:Number(row.DONGIA||0),Amount:Number(row.THANHTIEN||0)}));
+    const names=key=>[...new Set(items.map(row=>row[key]).filter(Boolean))].join(', ');
+    employee={NAME:names('STAFF_NAME')};warehouse={NAME:names('WAREHOUSE_NAME')};
+    header={...header,NGAY:items[0]?.NGAYXUAT||header.NGAY,DIENGIAI:items.map(row=>row.NOTE).filter(Boolean).join('; ')||header.NOTE||'',TILEGIAMGIA:0,TILETHUE:0,TIENGIAMGIA:0,TIENTHUE:0,TAXSUMMARY:'[]',PHIDICHVU:0,TILEPHIDICHVU:0,TONGCONG:rows.reduce((sum,row)=>sum+row.Amount,0)};break;
+   }
+   case 'MauPhieuBaoHanh': {
+    const part=await related('DMATHANG',header.DMATHANGID);const service=await related('DDICHVU',header.DDICHVUID);
+    rows=[{ItemName:'Hạng mục bảo hành',ValueText:part?.NAME||service?.NAME||header.NOTE||''},{ItemName:'Thời hạn',ValueText:`${date(header.NGAYBATDAU)} - ${date(header.NGAYKETTHUC)}`},{ItemName:'Kết quả xử lý',ValueText:header.KETQUAXULY||''}];break;
+   }
+   case 'MauPhieuThu':case 'MauPhieuChi': {
+    const reason=await related('DLYDOTHUCHI',header.DLYDOTHUCHID);rows=[{ItemName:reason?.NAME||header.NOTE||type.label,Note:header.NOTE||'',Amount:Number(header.SOTIEN||0)}];
+    extra=[header.CHUNGTUGOC?`Chứng từ gốc: ${header.CHUNGTUGOC}`:'',header.DIACHIDOITUONG?`Địa chỉ: ${header.DIACHIDOITUONG}`:'',header.GHICHU?`Ghi chú: ${header.GHICHU}`:''].filter(Boolean).join('; ');
+    const amount=Number(header.SOTIEN||0);
+    header={...header,TONGCONG:amount,
+     THU:type.key==='MauPhieuThu'?amount:0,CHI:type.key==='MauPhieuChi'?amount:0,
+     TENDOITUONG:header.TENDOITUONG||customer?.NAME||supplier?.NAME||employee?.NAME||'',
+     DIACHI:header.DIACHIDOITUONG||customer?.DIACHI||supplier?.DIACHI||employee?.DIACHI||'',
+     DIENGIAI:header.NOTE||reason?.NAME||'',CHUNGTUGOC:header.CHUNGTUGOC||''};break;
+   }
+   case 'MauMaVachPhuTung': {
+    const unit=await related('DDONVITINH',header.DDONVITINHID);
+    const group=await related('DNHOMMATHANG',header.DNHOMMATHANGID);
+    const manufacturer=await related('DHANGSANXUAT',header.DHANGSANXUATID);
+    rows=[{...header,DDONVITINH_NAME:unit?.NAME||'',DNHOMMATHANG_NAME:group?.NAME||'',DHANGSANXUAT_NAME:manufacturer?.NAME||'',ItemName:header.NAME,ItemCode:header.CODE||'',BARCODE:header.BARCODE||header.CODE||'',Amount:Number(header.GIABAN||0)}];break;
+   }
+   case 'MauBangLuong': {
+    const items=await db.query(`SELECT ct.*,nv.NAME AS STAFF_NAME FROM ${branchSql.table('TBANGLUONGCHITIET')} ct LEFT JOIN ${branchSql.table('DNHANVIEN')} nv ON nv.ID=ct.DNHANVIENID WHERE ct.TBANGLUONGID=? AND COALESCE(ct.STATUS,0)>=0`,[id]);
+    rows=items.map(row=>({...clean(row),ItemName:row.STAFF_NAME||'',Amount:Number(row.TONGCONG||0),DNHANVIEN_NAME:row.STAFF_NAME||'',Note:`Cơ bản ${money(row.LUONGCOBAN)}, hoa hồng ${money(row.HOAHONG)}, thưởng ${money(row.THUONG)}, phạt ${money(row.PHAT)}`}));header.TONGCONG=header.TONGLUONG;break;
+   }
+   case 'MauHoSoXe': rows=[{ItemName:'Biển số',ValueText:header.BIENSO||''},{ItemName:'Số khung / VIN',ValueText:header.SOKHUNG||''},{ItemName:'Số máy',ValueText:header.SOMAY||''},{ItemName:'Năm sản xuất / màu',ValueText:`${header.NAMSANXUAT||''} / ${header.MAUXE||''}`},{ItemName:'Số km',ValueText:String(header.ODO??'')}];break;
+   case 'MauLichSuSuaChua': {
+    const items=await db.query(`SELECT NAME,NGAY,KETTHUC,NOTE,TONGCONG FROM ${branchSql.table('TLENHSUACHUA')} WHERE DXEID=? AND COALESCE(STATUS,0)>=0 AND CAST(NGAY AS DATE) BETWEEN ? AND ? ORDER BY NGAY DESC`,[id,from,to]);
+    rows=items.map(row=>({ItemName:row.NAME,ValueText:`${date(row.NGAY)} - ${date(row.KETTHUC)}; ${money(row.TONGCONG)}`,Note:row.NOTE||''}));break;
+   }
+   case 'MauCongNoKhachHang':case 'MauCongNoNhaCungCap': {
+    const kind=type.key==='MauCongNoKhachHang'?'receivable':'payable';
+    if(kind==='receivable')customer=header;else supplier=header;
+    const balance=await require('./debtPrint.js').load(kind,id,from,to);
+    rows=balance.rows;header={...header,TONGCONG:balance.total};
+    extra='Công nợ gồm số dư đầu kỳ, chứng từ và phiếu thu/chi trong kỳ.';break;
+   }
+  }
+ }
+ const [companyEmail]=await db.query("SELECT TEXTVALUE FROM SCONFIG WHERE NAME='CompanyEmail' AND STATUS=30");
+ const subtotal=rows.reduce((sum,row)=>sum+Number(row.Amount||0),0);
+ const total=header.TONGCONG??(subtotal-Number(header.TIENGIAMGIA||0)+Number(header.TIENTHUE||0)+Number(header.PHIVANCHUYEN||0)+Number(header.PHIDICHVU||0));
+ const parameters={...(await company(header.DCUAHANGID)),CompanyEmail:companyEmail?.TEXTVALUE||'',...prefixed('DXE',vehicle),...prefixed('DKHACHHANG',customer),...prefixed('DNHACUNGCAP',supplier),...prefixed('DNHANVIEN',employee),...prefixed('DNHANVIEN2',employee),...prefixed('DKHOHANG',warehouse),...prefixed('DKHOHANG2',warehouse),...header,...reception,
+ 'In bởi':user||'',DocTitle:type.label.toLocaleUpperCase('vi'),DocNumber:type.key==='MauMaVachPhuTung'?(header.CODE||header.NAME||''):header.NAME||header.BIENSO||'',DocDate:date(header.NGAY||header.NGAYBATDAU||header.TIMECREATED),
+ DocDateLong:require('./a5TemplateTypography.js').longDate(header.NGAY||header.NGAYBATDAU||header.TIMECREATED),
+ CustomerName:header.TENDOITUONG||customer?.NAME||supplier?.NAME||header.DKHACHHANG_NAME||'',Contact:customer?.DIENTHOAI||supplier?.DIENTHOAI||'',VehiclePlate:vehicle?.BIENSO||'',
+ Description:header.NOTE||'',Extra:extra,TotalText:money(total),TONGCONG:total,
+ FooterNote:['MauHoSoXe','MauLichSuSuaChua','MauBaoCao','MauMaVachPhuTung'].includes(type.key)?'': 'Khách hàng / người giao nhận                         Nhân viên GARA',
+ DKHACHHANG_DIACHI:customer?.DIACHI||supplier?.DIACHI||header.DIACHI||header.DIACHIDOITUONG||'',PHIVANCHUYEN:Number(header.PHIVANCHUYEN||0),
+ TIENTHUE:Number(header.TIENTHUE||0),TIENGIAMGIA:Number(header.TIENGIAMGIA||0),TIENHANG:header.TIENHANG??rows.reduce((sum,row)=>sum+Number(row.Amount||0),0),
+ PHIDICHVU:Number(header.PHIDICHVU||0),TILEPHIDICHVU:Number(header.TILEPHIDICHVU||0),TILETHUE:Number(header.TILETHUE||0),
+ SummaryText:type.layout!=='money'?'':`Tổng cộng: ${money(total)}${header.TIENGIAMGIA?`; giảm giá: ${money(header.TIENGIAMGIA)}`:''}${header.PHIDICHVU?`; phí dịch vụ (${Number(header.TILEPHIDICHVU||0)}%): ${money(header.PHIDICHVU)}`:''}${header.TIENTHUE?`; thuế (${Number(header.TILETHUE||0)}%): ${money(header.TIENTHUE)}`:''}`,
+ };
+ if(filters.draft){parameters.DocTitle='PHIẾU TẠM TÍNH';parameters.Extra='Phiếu tạm tính — chưa xác nhận thanh toán.';parameters.FooterNote='';}
+ Object.assign(parameters,await require('./printBranches.js').resolve(header,warehouse,db.query,{aggregate:type.key==='MauBaoCao'}));
+ const table0=monetaryRows(rows);
+ Object.assign(parameters,{
+  DocDateTime:header.NGAY&&!Number.isNaN(new Date(header.NGAY).getTime())?new Date(header.NGAY).toLocaleString('vi-VN',{timeZone:'Asia/Bangkok'}):date(header.NGAY),
+  SubtotalText:Number(parameters.TIENHANG||0).toLocaleString('vi-VN'),DiscountText:Number(parameters.TIENGIAMGIA||0).toLocaleString('vi-VN'),
+  TotalNumberText:Number(total||0).toLocaleString('vi-VN'),
+  ServiceFeeText:money(header.PHIDICHVU),PrintShow_serviceFee:Number(header.PHIDICHVU||0)>0,
+  AdditionalChargesText:[Number(header.PHIDICHVU)?'Phí dịch vụ: '+money(header.PHIDICHVU):'',Number(header.TIENTHUE)?'Thuế: '+money(header.TIENTHUE):'',Number(header.PHIVANCHUYEN)?'Vận chuyển: '+money(header.PHIVANCHUYEN):''].filter(Boolean).join('\n'),
+ });
+ if(type.key==='MauHoaDonBanHang'){
+  Object.assign(parameters,await require('./salesPrintVisibility.js').load());
+  require('./salesPrintVisibility.js').hideZeroValues(parameters);
+  parameters.TotalCommaText=Number(total||0).toLocaleString('en-US');
+  parameters.TotalNumberText=parameters.TotalCommaText;
+  parameters.PrintShow_additionalCharges=parameters.PrintShow_tax||parameters.PrintShow_shipping||parameters.PrintShow_serviceFee;
+  parameters.SummaryText=`Tổng cộng: ${money(total)}${parameters.PrintShow_discount&&header.TIENGIAMGIA?`; giảm giá: ${money(header.TIENGIAMGIA)}`:''}${header.PHIDICHVU?`; phí dịch vụ (${Number(header.TILEPHIDICHVU||0)}%): ${money(header.PHIDICHVU)}`:''}${parameters.PrintShow_tax&&header.TIENTHUE?`; thuế (${Number(header.TILETHUE||0)}%): ${money(header.TIENTHUE)}`:''}`;
+  const rounding = Math.round((total - (Number(header.TIENHANGCHUAGIAM || 0) - Number(header.TIENGIAMGIA || 0) + Number(header.PHIDICHVU || 0) + Number(header.TIENTHUE || 0))) * 100) / 100;
+  if(Number(header.CHARGEVERSION)===1 && rounding)parameters.SummaryText+=`; điều chỉnh làm tròn: ${money(rounding)}`;
+  parameters.AdditionalChargesText=[Number(header.PHIDICHVU)?'Phí dịch vụ: '+money(header.PHIDICHVU):'',parameters.PrintShow_tax&&Number(header.TIENTHUE)?'Thuế: '+money(header.TIENTHUE):'',parameters.PrintShow_shipping&&Number(header.PHIVANCHUYEN)?'Vận chuyển: '+money(header.PHIVANCHUYEN):''].filter(Boolean).join('\n');
+ }
+ const taxGroups=require('./pricingPolicy.js').summary(header.TAXSUMMARY);
+ parameters.TaxBreakdownText=taxGroups.filter(group=>group.amount!==0).map(group=>`VAT ${group.rate}%: ${money(group.amount)}`).join('\n');
+ parameters.DiscountSource=header.NGUONGIAMGIA||'';
+ if(taxGroups.length){
+  parameters.SummaryText=parameters.SummaryText.replace(/; thuế \([^)]*\): [^;]*/,parameters.PrintShow_tax===false?'':`; ${parameters.TaxBreakdownText.replace(/\n/g,'; ')}`);
+  parameters.AdditionalChargesText=parameters.AdditionalChargesText.replace(/Thuế: [^\n]*/,parameters.PrintShow_tax===false?'':parameters.TaxBreakdownText);
+ }
+ return {parameters,tables:{Table0:table0}};
+}
+async function resolve(type,templateId) {
+ if(require('./warrantyPrint').supports(type.key))await require('./warrantyPrint').ensure();
+ const [setting]=await db.query('SELECT TEXTVALUE,OTHERCONFIG FROM SCONFIG WHERE NAME=? AND STATUS=30',[type.key]);
+ const id=templateId||setting?.TEXTVALUE;const filter=templateFilter(setting?.OTHERCONFIG);
+ if(!id)throw fail(`Chưa đặt mẫu mặc định cho ${type.label.toLowerCase()}.`,409);
+ if(!filter?.ids.includes(String(id).toLowerCase()))throw fail('Mẫu in không thuộc loại phiếu đang chọn.');
+ const [row]=await db.query('SELECT ID,NAME FROM STEMPLATE WHERE ID=? AND STATUS IN (0,30)',[id]);if(!row)throw fail('Mẫu in không còn sử dụng.',404);
+ const content=await db.queryBlob('SELECT TEMPLATE FROM STEMPLATE WHERE ID=?',[id],'TEMPLATE');if(!content)throw fail('Mẫu in chưa có nội dung.',409);
+ return {...row,content};
+}
+function validateBindings(xml,data) {
+ const missing=new Set();const rows=data.tables.Table0||[];
+ for(const match of xml.matchAll(/\[Table0\.([^\]\r\n]+)\]/g)) {
+  const field=match[1];if(rows.length && !rows.some(row=>Object.hasOwn(row,field)))missing.add('Table0.'+field);
+ }
+ const computed=new Set([...xml.matchAll(/<Total Name="([^"]+)"/g)].map(match=>match[1]));
+ const system=new Set(['Date','Page','PageN','TotalPages','PageNofM','Row#','AbsRow#','CopyName#','HierarchyLevel','HierarchyRow#','Page#','TotalPages#']);
+ for(const match of xml.matchAll(/\[([^\[\]\r\n]+)\]/g)) {
+  const key=match[1].trim();if(!key||key.includes('.')||system.has(key)||computed.has(key)||/[=<>!+\-*/|&()"]/.test(key))continue;
+  if(!(key in data.parameters))missing.add(key);
+ }
+ if(missing.size)throw fail('Mẫu này chưa được ánh xạ đủ dữ liệu GARA ('+[...missing].slice(0,5).join(', ')+'). Hãy chọn mẫu GARA hoặc chỉnh mẫu trong Quản lý mẫu in.',409);
+}
+async function render(type,id,filters,user,accessUser) {
+ if(filters.draft&&type.key!=='MauHoaDonBanHang')throw fail('Tạm tính giỏ hàng chỉ dùng cho bán hàng.');
+ const template=await resolve(type,filters.templateId);let data=await payload(type,id,filters,user);if(accessUser)data=require('./printPrivacy.js').protect(accessUser,data);
+ data=require('./printDates.js').normalize(data);
+ const logo=decodeConfigImage(await db.queryBlob("SELECT BLOBVALUE FROM SCONFIG WHERE NAME='CompanyLogo' AND STATUS=30",[],'BLOBVALUE'));
+ let xml=require('./chargePrint.js').applyServiceFeeRow(mapLegacyMoneyWords(applyCompanyLogo(template.content.toString('utf8'),logo,{insertMissing:false}),data),data.parameters);
+ xml=require('./printDates.js').applyTimeLabels(xml,data.parameters);
+ if(type.key==='MauHoaDonBanHang'){
+  xml=require('./salesLineDiscountPrint.js').hideUnusedDiscountColumns(xml,data.tables.Table0);
+  xml=require('./salesLineDiscountPrint.js').fitMoneyColumns(xml,data.tables.Table0);
+  xml=require('./chargePrint.js').formatSalesTotal(xml);
+ }
+ xml=require('./chargePrint.js').applyTaxBreakdown(xml,data.parameters);
+ if(type.key==='MauBaoGia')xml=require('./quoteConfirmationPrint.js').apply(xml);
+ xml=require('./repairInvoiceLayout.js').apply(xml,type.key);
+ xml=require('./invoiceNotePrint.js').apply(xml,data.parameters,type.key);
+ if(xml.includes('Name="DocumentReceiptVariants"')){
+  require('./documentReceiptVariants.js').prepare(data);
+  xml=require('./salesLineDiscountPrint.js').hideUnusedDiscountColumns(xml,data.tables.Table0);
+  xml=require('./salesLineDiscountPrint.js').fitMoneyColumns(xml,data.tables.Table0);
+ }
+ let notice='';
+ if(type.key==='MauPhieuTamTinh'||filters.draft)({xml,notice}=await require('./provisionalPaymentQr.js').apply(xml,data,db.query));
+ if(type.key==='MauMaVachPhuTung'){
+  const barcode=require('./barcodePrint.js');
+  ({xml,notice}=barcode.adaptBarcodeTemplate(xml,data));
+  barcode.prepareBarcodePayload(xml,data);
+ }
+ xml=require('./printBranches.js').apply(xml,data.parameters);
+ if(filters.draft)xml=xml.replace(/H[ÓO]A ĐƠN BÁN HÀNG/gi,'PHIẾU TẠM TÍNH');
+ validateBindings(xml,data);fillMissingVariables(xml,data);
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'garage-document-print-'));
+ try{const templatePath=path.join(dir,'template.frx'),dataPath=path.join(dir,'data.json'),pdfPath=path.join(dir,'output.pdf');fs.writeFileSync(templatePath,xml);fs.writeFileSync(dataPath,JSON.stringify(data));const pdf=await runRenderer(templatePath,dataPath,pdfPath);return {pdf,name:data.parameters.DocNumber||type.label,template,notice};}
+ finally{const safeRoot=path.resolve(os.tmpdir())+path.sep;if(path.resolve(dir).startsWith(safeRoot))fs.rmSync(dir,{recursive:true,force:true});}
+}
+async function info(type) {
+ if(require('./warrantyPrint').supports(type.key))await require('./warrantyPrint').ensure();
+ const [setting]=await db.query('SELECT TEXTVALUE,OTHERCONFIG FROM SCONFIG WHERE NAME=? AND STATUS=30',[type.key]);
+ const filter=templateFilter(setting?.OTHERCONFIG);return {key:type.key,label:type.label,defaultId:setting?.TEXTVALUE||'',templates:filter?await templateOptions(db.query,filter):[]};
+}
+module.exports={types,typeByKey,permitted,records,payload,render,info,resolve,range,validateBindings};
+

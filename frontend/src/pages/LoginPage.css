@@ -1,0 +1,683 @@
+/* ========================================================
+   KAZUKO AUTO - Modern Responsive Login Page (Desktop & Mobile)
+   ======================================================== */
+
+.kazuko-login-page {
+  display: flex;
+  min-height: 100%;
+  width: 100%;
+  background-color: #E2CEBD;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+
+/* ========================================================
+   CỘT TRÁI (DESKTOP): BẢNG GIỚI THIỆU THƯƠNG HIỆU & TÍNH NĂNG GARA
+   ======================================================== */
+.login-left-banner {
+  flex: 1 1 62%;
+  min-height: 100vh;
+  background: 
+    radial-gradient(circle at 10% 20%, rgba(240, 90, 40, 0.12) 0%, transparent 40%),
+    radial-gradient(circle at 90% 80%, rgba(217, 119, 6, 0.1) 0%, transparent 45%),
+    linear-gradient(135deg, #FDFBF7 0%, #F5ECE3 50%, #EDE0D4 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.banner-glass-container {
+  width: 100%;
+  max-width: 660px;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  border-radius: 24px;
+  padding: 36px 38px 28px;
+  box-shadow: 0 15px 35px rgba(180, 130, 90, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  box-sizing: border-box;
+}
+
+/* HEADER CỘT TRÁI */
+.banner-header {
+  text-align: center;
+}
+
+.brand-logo-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.car-badge-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: #FFF3E0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(230, 81, 0, 0.15);
+}
+
+.brand-badge-text {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.brand-main {
+  font-size: 26px;
+  font-weight: 900;
+  color: #1E293B;
+  letter-spacing: 0.5px;
+  line-height: 1.1;
+}
+
+.brand-accent {
+  color: #E65100;
+  font-style: italic;
+}
+
+.brand-sub {
+  font-size: 10px;
+  font-weight: 700;
+  color: #64748B;
+  letter-spacing: 2px;
+}
+
+.banner-main-title {
+  margin: 6px 0 4px;
+  font-size: 26px;
+  font-weight: 800;
+  color: #0F172A;
+  letter-spacing: -0.3px;
+}
+
+.banner-sub-title {
+  margin: 0;
+  font-size: 14.5px;
+  color: #64748B;
+  font-weight: 500;
+}
+
+/* LƯỚI 6 TÍNH NĂNG (3 CỘT X 2 HÀNG) */
+.banner-features-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+.feature-tile-card {
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.03);
+  transition: all 0.2s ease;
+}
+
+.feature-tile-card:hover {
+  transform: translateY(-2px);
+  background: #FFFFFF;
+  box-shadow: 0 8px 20px rgba(230, 81, 0, 0.08);
+}
+
+.feature-icon-box {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.feature-text-box {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.feature-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #1E293B;
+}
+
+.feature-desc {
+  font-size: 11px;
+  color: #64748B;
+  line-height: 1.3;
+}
+
+/* SLOGAN DƯỚI CÙNG */
+.banner-bottom-slogan {
+  text-align: center;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(203, 213, 225, 0.7);
+}
+
+.slogan-script {
+  font-size: 21px;
+  font-style: italic;
+  font-weight: 600;
+  color: #1E293B;
+  font-family: 'Georgia', 'Playfair Display', serif;
+  margin-bottom: 4px;
+}
+
+.slogan-caps {
+  font-size: 10px;
+  font-weight: 700;
+  color: #64748B;
+  letter-spacing: 2px;
+}
+
+/* Banner Mobile ẩn trên Desktop */
+.login-mobile-banner {
+  display: none;
+}
+
+/* ========================================================
+   CỘT PHẢI (DESKTOP): THẺ ĐĂNG NHẬP (CARD)
+   ======================================================== */
+.login-right-panel {
+  flex: 0 0 38%;
+  min-width: 420px;
+  max-width: 480px;
+  background-color: #E2CEBD;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 30px 24px;
+  box-sizing: border-box;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 390px;
+  background: #FFFFFF;
+  border-radius: 28px;
+  padding: 32px 30px 24px;
+  box-shadow: 0 18px 45px rgba(160, 110, 70, 0.18);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+/* HEADER CỦA CARD */
+.card-brand-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.card-car-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #FFF3E0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.brand-text-col {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.brand-name {
+  font-size: 19px;
+  font-weight: 900;
+  color: #1E293B;
+  letter-spacing: 0.5px;
+  line-height: 1.1;
+}
+
+.brand-pos {
+  color: #E65100;
+}
+
+.brand-sub {
+  font-size: 9px;
+  font-weight: 700;
+  color: #64748B;
+  letter-spacing: 1.5px;
+}
+
+.login-title {
+  margin: 10px 0 3px;
+  font-size: 23px;
+  font-weight: 800;
+  color: #111827;
+  text-align: center;
+}
+
+.login-welcome {
+  margin: 0 0 18px;
+  font-size: 13px;
+  color: #6B7280;
+  text-align: center;
+}
+
+/* Mobile header ẩn trên desktop */
+.mobile-header {
+  display: none;
+}
+
+/* ===== FORM ĐĂNG NHẬP ===== */
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.login-input-field {
+  display: flex;
+  align-items: center;
+  background: #F9FAFB;
+  border: 1px solid #E5E7EB;
+  border-radius: 12px;
+  padding: 0 14px;
+  height: 44px;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.login-input-field:focus-within {
+  border-color: #E65100;
+  background: #FFFFFF;
+  box-shadow: 0 0 0 3px rgba(230, 81, 0, 0.12);
+}
+
+.field-icon {
+  color: #9CA3AF;
+  flex-shrink: 0;
+  margin-right: 10px;
+}
+
+.field-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 13.5px;
+  color: #1E293B;
+}
+
+.field-input::placeholder {
+  color: #9CA3AF;
+  font-size: 13px;
+}
+
+.toggle-eye-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  color: #9CA3AF;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s;
+}
+
+.toggle-eye-btn:hover {
+  color: #4B5563;
+}
+
+/* OPTIONS ROW */
+.login-options-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 2px 0 4px;
+  font-size: 12.5px;
+}
+
+.remember-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #4B5563;
+  cursor: pointer;
+  user-select: none;
+}
+
+.remember-box input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  accent-color: #E65100;
+  cursor: pointer;
+}
+
+.forgot-link {
+  color: #C2410C;
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.forgot-link:hover {
+  color: #9A3412;
+  text-decoration: underline;
+}
+
+/* NÚT SUBMIT */
+.login-submit-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 44px;
+  background: linear-gradient(135deg, #F05A28 0%, #E65100 100%);
+  color: #FFFFFF;
+  border: none;
+  border-radius: 10px;
+  font-size: 14.5px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(230, 81, 0, 0.32);
+  transition: all 0.2s ease;
+  margin-top: 4px;
+}
+
+.login-submit-button:hover:not(:disabled) {
+  background: linear-gradient(135deg, #E64A19 0%, #D84315 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(230, 81, 0, 0.42);
+}
+
+.login-submit-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* REGISTER PROMPT */
+.register-prompt {
+  text-align: center;
+  font-size: 12.5px;
+  color: #4B5563;
+  margin: 4px 0 6px;
+}
+
+.register-link {
+  color: #EA580C;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.register-link:hover {
+  text-decoration: underline;
+}
+
+/* QUICK LOGIN */
+.quick-login-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.quick-login-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  color: #6B7280;
+  font-size: 11.5px;
+  margin: 2px 0 6px;
+}
+
+.quick-login-divider::before,
+.quick-login-divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid #E5E7EB;
+}
+
+.quick-login-divider span {
+  padding: 0 10px;
+}
+
+.quick-login-buttons {
+  display: flex;
+  justify-content: space-around;
+  gap: 8px;
+}
+
+.quick-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 8px;
+  transition: all 0.15s;
+}
+
+.quick-btn:hover {
+  background: #F8FAFC;
+  transform: translateY(-2px);
+}
+
+.quick-btn span {
+  font-size: 11px;
+  color: #475569;
+  font-weight: 500;
+}
+
+/* THÔNG BÁO */
+.login-error-msg {
+  background: #FEF2F2;
+  color: #DC2626;
+  border: 1px solid #FCA5A5;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+}
+
+.login-info-msg {
+  background: #EFF6FF;
+  color: #1D4ED8;
+  border: 1px solid #BFDBFE;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+}
+
+/* FOOTER THÔNG TIN CÔNG TY */
+.login-company-footer {
+  margin-top: 18px;
+  text-align: center;
+  border-top: 1px solid #F3F4F6;
+  padding-top: 12px;
+  font-size: 10px;
+  color: #1E293B;
+  line-height: 1.5;
+}
+
+.company-name {
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  margin-bottom: 3px;
+  color: #0F172A;
+}
+
+.company-contact {
+  color: #334155;
+}
+
+.company-contact a {
+  color: #0F172A;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+/* ========================================================
+   TỐI ƯU GIAO DIỆN MOBILE (<= 768px)
+   ======================================================== */
+@media (max-width: 768px) {
+  .kazuko-login-page {
+    flex-direction: column;
+    background-color: #E2CEBD;
+    min-height: 100vh;
+    align-items: center;
+    justify-content: flex-start;
+    padding-bottom: 24px;
+    width: 100%;
+  }
+
+  .login-left-banner {
+    display: none !important;
+  }
+
+  /* BANNER TRÊN CÙNG MOBILE */
+  .login-mobile-banner {
+    display: block !important;
+    width: 100%;
+    max-width: 420px;
+    padding: 24px 16px 0;
+    box-sizing: border-box;
+  }
+
+  .mobile-banner-glass {
+    background: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.85);
+    border-radius: 20px;
+    padding: 18px 16px 16px;
+    text-align: center;
+    box-shadow: 0 10px 25px rgba(180, 130, 90, 0.12);
+  }
+
+  .mobile-brand-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+
+  .mobile-brand-title {
+    font-size: 22px;
+    font-weight: 900;
+    color: #1E293B;
+  }
+
+  .mobile-sub-title {
+    font-size: 10px;
+    font-weight: 700;
+    color: #64748B;
+    letter-spacing: 1.5px;
+  }
+
+  .mobile-script {
+    font-size: 17px;
+    font-style: italic;
+    font-family: 'Georgia', serif;
+    color: #1E293B;
+    margin: 4px 0 14px;
+  }
+
+  /* 4 Icon tròn trên mobile */
+  .mobile-quick-features {
+    display: flex;
+    justify-content: space-around;
+    gap: 8px;
+  }
+
+  .mobile-feature-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .circle-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.04);
+  }
+
+  .mobile-feature-item span {
+    font-size: 10.5px;
+    font-weight: 600;
+    color: #334155;
+  }
+
+  /* KHUNG DƯỚI FORM ĐĂNG NHẬP */
+  .login-right-panel {
+    width: 100%;
+    max-width: 420px;
+    min-width: unset;
+    padding: 14px 16px 0;
+    background: transparent;
+    z-index: 2;
+  }
+
+  .login-card {
+    border-radius: 24px;
+    padding: 24px 20px 20px;
+    box-shadow: 0 12px 35px rgba(160, 110, 70, 0.15);
+  }
+
+  .desktop-header {
+    display: none !important;
+  }
+
+  .mobile-header {
+    display: block !important;
+    text-align: center;
+    margin-bottom: 12px;
+  }
+
+  .login-title-mobile {
+    margin: 0 0 4px;
+    font-size: 22px;
+    font-weight: 800;
+    color: #111827;
+  }
+
+  .title-dot {
+    color: #E65100;
+    font-size: 20px;
+    vertical-align: middle;
+  }
+
+  .quick-login-section {
+    display: none !important;
+  }
+
+  .login-company-footer {
+    margin-top: 14px;
+    padding-top: 10px;
+  }
+}

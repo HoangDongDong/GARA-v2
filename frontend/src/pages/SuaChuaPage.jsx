@@ -1,0 +1,2406 @@
+import CustomerCreateModal from '../components/CustomerCreateModal';
+import { compressImage, imagePolicies } from '../utils/compressImage.js';
+import { can, canQuickCreate, workflowPermission } from '../utils/permissions.js';
+import { openDocumentPrint } from '../components/DocumentPrintDialog';
+import { resolveRepairPrintDocument } from '../utils/repairPrintDocument';
+import useDocumentNumber from '../hooks/useDocumentNumber.js';
+import DocumentNumberField from '../components/DocumentNumberField';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { 
+  Wrench, Calendar, Search, CheckSquare, Square, Check, XCircle, RotateCcw, 
+  Send, Printer, Bookmark, CheckCircle, ChevronDown, Sparkles, Filter, 
+  Disc, Zap, Thermometer, BatteryCharging, MoreHorizontal, Settings as SettingsIcon,
+  CircleDot, FileText, Car, Plus, UserPlus, Images, ImagePlus, Trash2
+} from 'lucide-react';
+import { customers, employees, invoices, masterData, parts as partsApi, repairOrders, vehicles, workflow } from '../services';
+import VehicleProfileModal from '../components/VehicleProfileModal';
+import VehicleSelect from '../components/VehicleSelect';
+import EmployeeFormModal from '../components/EmployeeFormModal';
+import RepairAssignmentPanel from '../components/RepairAssignmentPanel';
+import RepairSupplements from '../components/RepairSupplements';
+import LineTaxField from '../components/LineTaxField';
+import EditableSalePrice from '../components/EditableSalePrice';
+import DiscountFields from '../components/DiscountFields';
+import { billDiscount } from '../utils/billDiscount.js';
+import ChargeSummary from '../components/ChargeSummary';
+import useChargeRates from '../hooks/useChargeRates.js';
+import canEditPricing from '../utils/canEditPricing.js';
+import { calculate, taxPolicy, discountPolicy } from '../utils/pricingPolicy.js';
+import { lastDraftVehicle, readRepairDraft, saveRepairDraft, removeRepairDraft, restoreDraftItems } from '../utils/repairDraft.js';
+import './SuaChuaPage.css';
+import api from '../api.js';
+
+const MAX_WORKFLOW_IMAGES = 12;
+
+const compressWorkflowImage = async file => {const result=await compressImage(file,imagePolicies.workflow);return {name:file.name.replace(/\.[^.]+$/, '')+'.jpg',type:result.type,data:result.data};};
+
+export default function SuaChuaPage() {
+  const [searchParams] = useSearchParams();
+  const requestedVehicleId = searchParams.get('vehicleId');
+  const requestedRepairId = searchParams.get('repairId');
+  const requestedConfirmation = searchParams.get('confirm') === '1';
+  const requestedPayment = searchParams.get('payment') === '1';
+  // Toast thông báo
+  const [toastMessage, setToastMessage] = useState('');
+  const toastTimer = useRef(null);
+  const showToast = (msg) => {
+    clearTimeout(toastTimer.current);
+    setToastMessage(msg);
+    toastTimer.current = setTimeout(() => setToastMessage(''), 5000);
+  };
+  useEffect(() => () => clearTimeout(toastTimer.current), []);
+
+  // Thông tin phiếu tiếp nhận sửa chữa
+  const [vehicleInfo, setVehicleInfo] = useState({
+    vehicleId: '', customerId: '',
+    plate: '51A-123.45',
+    date: '2025-09-30',
+    status: 'Đang kiểm tra',
+    customer: 'Nguyễn Văn A',
+    staff: 'admin',
+    currentKm: '68.500',
+    carModel: 'Toyota Vios',
+    receiptCode: '',
+    note: ''
+  });
+
+  // Ghi chú khi sửa chữa
+  const [repairNotes, setRepairNotes] = useState('');
+
+  // Tải danh mục từ database, phiếu mới chưa chọn hạng mục nào.
+  const [services, setServices] = useState([]);
+  const [vehicleOptions, setVehicleOptions] = useState([]);
+  const [employeeOptions, setEmployeeOptions] = useState([]);
+  const [savingProcess, setSavingProcess] = useState(false);
+  const [repairFlow, setRepairFlow] = useState({ repairId: null, workflowId: null, receptionId: null, workflowState: null });
+  const [savedDetails, setSavedDetails] = useState([]);
+  const [savedOrder, setSavedOrder] = useState(null);
+  const [declinedItemIds, setDeclinedItemIds] = useState([]);
+  const canEditPolicy = canEditPricing('REPAIR');
+  const chargeConfig = useChargeRates('repair-orders');
+  const [discountOverride, setDiscountOverride] = useState(null);
+  const [discountMoney, setDiscountMoney] = useState(null);
+  const [draftSavedAt, setDraftSavedAt] = useState('');
+  const restoredDraftCustomer = useRef(null);
+  const [showSupplements, setShowSupplements] = useState(false);
+  const draftNumber=useDocumentNumber('LenhSuaChua',!repairFlow.repairId,vehicleInfo.plate);
+  const [vehicleFlowOptions, setVehicleFlowOptions] = useState([]);
+  const vehicleSelectionRequest = useRef(0);
+  const [showRepairConfirmation, setShowRepairConfirmation] = useState(false);
+  useEffect(() => { setDeclinedItemIds([]); }, [repairFlow.repairId, savedDetails, showRepairConfirmation]);
+  const [repairAssignment, setRepairAssignment] = useState({ valid: false, assignments: [] });
+  const [showPayment, setShowPayment] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState('cash');
+  const [allowPaymentDebt, setAllowPaymentDebt] = useState(false);
+  const [paymentCollected, setPaymentCollected] = useState('');
+  const [workflowImages, setWorkflowImages] = useState([]);
+  const [draftWorkflowImages, setDraftWorkflowImages] = useState([]);
+  const [selectedImageState, setSelectedImageState] = useState(0);
+  const [uploadingImages, setUploadingImages] = useState(false);
+  const [previewImage, setPreviewImage] = useState(null);
+  const workflowImageInputRef = useRef(null);
+  const [showAddVehicle, setShowAddVehicle] = useState(false);
+  const [savingVehicle, setSavingVehicle] = useState(false);
+  const [vehicleBrands, setVehicleBrands] = useState([]);
+  const [vehicleModels, setVehicleModels] = useState([]);
+  const [showAddBrand, setShowAddBrand] = useState(false);
+  const [showAddModel, setShowAddModel] = useState(false);
+  const [newBrandName, setNewBrandName] = useState('');
+  const [newModelName, setNewModelName] = useState('');
+  const [savingVehicleMaster, setSavingVehicleMaster] = useState(false);
+  const [customerOptions, setCustomerOptions] = useState([]);
+  const [customerGroups, setCustomerGroups] = useState([]);
+  const [showAddCustomer, setShowAddCustomer] = useState(false);
+  const [savingCustomer, setSavingCustomer] = useState(false);
+  const [showAddCustomerGroup, setShowAddCustomerGroup] = useState(false);
+  const [savingCustomerGroup, setSavingCustomerGroup] = useState(false);
+  const [newCustomerGroupName, setNewCustomerGroupName] = useState('');
+  const [newCustomer, setNewCustomer] = useState({
+    NAME: '', DNHOMKHACHHANGID: '', MAKHACH: '', DIENTHOAI: '',
+    EMAIL: '', MASOTHUE: '', DIACHI: '',
+  });
+  const [showAddEmployee, setShowAddEmployee] = useState(false);
+  const [savingEmployee, setSavingEmployee] = useState(false);
+  const [employeeRoleOptions, setEmployeeRoleOptions] = useState([
+    { key: '1', label: 'Kỹ thuật viên' }, { key: '2', label: 'Cố vấn dịch vụ' },
+    { key: '4', label: 'Thu ngân' }, { key: '0', label: 'Lễ tân' }, { key: '3', label: 'Thủ kho' },
+  ]);
+  const [employeeDepartmentOptions, setEmployeeDepartmentOptions] = useState(['Sửa chữa', 'Dịch vụ', 'Kế toán', 'Kho hàng', 'Văn phòng']);
+  const [showAddEmployeeOption, setShowAddEmployeeOption] = useState(false);
+  const [employeeOptionType, setEmployeeOptionType] = useState('role');
+  const [newEmployeeOptionName, setNewEmployeeOptionName] = useState('');
+  const [newEmployee, setNewEmployee] = useState({
+    NAME: '', CODE: '', DIENTHOAI: '', EMAIL: '', DIACHI: '', DEPARTMENT: 'Dịch vụ',
+    CERT: '', CHUYENMON: '', LOAINHANVIEN: '1', ROLEKEY: '1', ROLELABEL: 'Kỹ thuật viên',
+  });
+  const [newVehicle, setNewVehicle] = useState({
+    BIENSO: '', DKHACHHANGID: '', DHANGXEID: '', DDONGXEID: '', PHIENBAN: '',
+    NAMSANXUAT: '', MAUXE: '', SOKHUNG: '', SOMAY: '', ODO: '0',
+    NHIENLIEU: '', MUCNHIENLIEU: '50', GHICHU: '',
+  });
+
+  useEffect(() => {
+    const loadDatabase = async () => {
+      setDraftSavedAt('');
+      try {
+        const [vehicleRows, serviceRows, partRows, employeeRows, customerRows, vehicleMeta, customerGroupRows] = await Promise.all([
+          vehicles.list(), masterData.services(), partsApi.list(), employees.lookup(),
+          customers.list(), vehicles.meta(), masterData.customerGroups(),
+        ]);
+        const availableVehicles = Array.isArray(vehicleRows) ? vehicleRows : [];
+        setVehicleOptions(availableVehicles);
+        setEmployeeOptions(Array.isArray(employeeRows) ? employeeRows : []);
+        setCustomerOptions(Array.isArray(customerRows) ? customerRows : []);
+        setCustomerGroups(Array.isArray(customerGroupRows) ? customerGroupRows : []);
+        setVehicleBrands(Array.isArray(vehicleMeta?.brands) ? vehicleMeta.brands : []);
+        setVehicleModels(Array.isArray(vehicleMeta?.models) ? vehicleMeta.models : []);
+        const catalog = [
+          ...(Array.isArray(serviceRows) ? serviceRows : []).map((item) => ({
+            ...item, id: `DV-${item.ID}`, sourceId: item.ID, sourceType: 1,
+            group: item.CATEGORY_NAME || 'Dịch vụ', iconType: 'gear',
+            groupColor: '#1976D2', groupBg: '#E3F2FD', name: item.NAME,
+            unit: 'Lần', unitId: null, quantity: 1, price: Number(item.GIA || 0),
+            note: '', checked: false,
+          })),
+          ...(Array.isArray(partRows) ? partRows : []).map((item) => ({
+            ...item, id: `PT-${item.ID}`, sourceId: item.ID, sourceType: 0,
+            group: item.NHOM || 'Phụ tùng', iconType: 'more',
+            groupColor: '#E65100', groupBg: '#FFF3E0', name: item.NAME,
+            unit: item.DONVI || 'Cái', unitId: item.DDONVITINHID || null,
+            quantity: 1, price: Number(item.GIABAN || 0),
+            note: '', checked: false,
+          })),
+        ];
+        setServices(catalog);
+        if (requestedVehicleId && !availableVehicles.some(vehicle => String(vehicle.ID) === requestedVehicleId)) {
+          showToast('Không tìm thấy xe được chọn. Vui lòng tải lại Hồ sơ xe.');
+          return;
+        }
+        const initialVehicleId = requestedVehicleId || (!requestedRepairId ? lastDraftVehicle(localStorage) : '');
+        const first = availableVehicles.find((vehicle) => String(vehicle.ID) === initialVehicleId) || availableVehicles[0];
+        if (first) {
+          setRepairFlow({ repairId: null, workflowId: null, receptionId: null, workflowState: null });
+          setSavedOrder(null); setSavedDetails([]); setRepairNotes(''); setShowRepairConfirmation(false); setShowPayment(false);
+          setVehicleInfo((current) => ({
+            ...current, vehicleId: first.ID, customerId: first.DKHACHHANGID || '',
+            plate: first.BIENSO || '', customer: first.TEN_KH || '',
+            currentKm: Number(first.ODO || 0).toLocaleString('vi-VN'),
+            carModel: [first.HANG_XE, first.DONG_XE, first.PHIENBAN].filter(Boolean).join(' '),
+            date: new Date().toISOString().slice(0, 10),
+            receiptCode: '',
+          }));
+          const flowRows = await workflow.byVehicleAll(first.ID).catch(() => []);
+          const flowOptions = Array.isArray(flowRows) ? flowRows : [];
+          setVehicleFlowOptions(flowOptions);
+          if (requestedRepairId && !flowOptions.some(flow => String(flow.TLENHSUACHUAID) === requestedRepairId)) {
+            showToast('Không tìm thấy quy trình của phiếu sửa chữa được chọn. Vui lòng tải lại Hồ sơ xe.');
+            return;
+          }
+          const activeFlow = flowOptions.find(flow => String(flow.TLENHSUACHUAID) === requestedRepairId) || flowOptions[0] || null;
+          if (!requestedRepairId && (!activeFlow?.TLENHSUACHUAID || Number(activeFlow.TRANGTHAI) === 4)
+            && restoreReceptionDraft(first, catalog, Number(activeFlow?.TRANGTHAI) === 4 ? null : activeFlow)) return;
+          if (activeFlow) {
+            setRepairFlow({
+              repairId: activeFlow.TLENHSUACHUAID || null,
+              workflowId: activeFlow.ID || null,
+              receptionId: activeFlow.TTIEPNHANXEID || null,
+              workflowState: Number(activeFlow.TRANGTHAI),
+            });
+            setVehicleInfo((current) => ({
+              ...current,
+              receiptCode: activeFlow.SOPHIEU || activeFlow.SOPHIEUTIEPNHAN || current.receiptCode,
+            }));
+            if (activeFlow.TLENHSUACHUAID) {
+              const order = await repairOrders.get(activeFlow.TLENHSUACHUAID).catch(() => null);
+              setSavedDetails(order?.details || []);
+              setSavedOrder(order);
+              setRepairNotes(order?.NOTE || '');
+              const detailIds = new Set((order?.details || []).map((detail) => detail.DMATHANGID || detail.DDICHVUID));
+              setServices(catalog.map((item) => ({ ...item, checked: detailIds.has(item.sourceId) })));
+              if (requestedConfirmation && Number(activeFlow.TRANGTHAI) === 1) setShowRepairConfirmation(true);
+              if (requestedPayment && order && String(activeFlow.TLENHSUACHUAID) === requestedRepairId) {
+                if (Number(activeFlow.TRANGTHAI) === 3) {
+                  setPaymentMethod('cash'); setAllowPaymentDebt(false); setPaymentCollected(''); setShowPayment(true);
+                } else showToast('Phiếu không còn ở bước Chờ giao xe. Trạng thái đã được cập nhật.');
+              }
+            }
+          }
+        }
+      } catch (error) {
+        showToast(error?.response?.data?.error || 'Không thể tải dữ liệu sửa chữa từ database.');
+      }
+    };
+    loadDatabase();
+  }, [requestedVehicleId, requestedRepairId, requestedConfirmation, requestedPayment]);
+
+  useEffect(() => {
+    const customRoles = [];
+    const customDepartments = [];
+    employeeOptions.forEach((employee) => {
+      try {
+        const note = JSON.parse(employee.NOTE || '{}');
+        if (note.chucVu) customRoles.push(note.chucVu);
+        if (note.phongBan) customDepartments.push(note.phongBan);
+      } catch {}
+    });
+    if (customRoles.length) setEmployeeRoleOptions((current) => {
+      const labels = new Set(current.map((item) => item.label.toLocaleLowerCase('vi')));
+      return [...current, ...[...new Set(customRoles)].filter((label) => !labels.has(label.toLocaleLowerCase('vi'))).map((label) => ({ key: `custom:${label}`, label }))];
+    });
+    if (customDepartments.length) setEmployeeDepartmentOptions((current) => [...new Set([...current, ...customDepartments])]);
+  }, [employeeOptions]);
+
+  // Bộ lọc tìm kiếm
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Lọc danh sách dịch vụ
+  const filteredServices = useMemo(() => {
+    if (!searchTerm.trim()) return services;
+    const q = searchTerm.toLowerCase();
+    return services.filter(s => 
+      s.name.toLowerCase().includes(q) || 
+      s.group.toLowerCase().includes(q) || 
+      s.note.toLowerCase().includes(q)
+    );
+  }, [services, searchTerm]);
+
+  // Danh sách đã chọn (tính toán tự động)
+  const selectedServices = useMemo(() => {
+    if (repairFlow.repairId) return savedDetails.map(detail => ({
+      ...detail, id: detail.ID, sourceId: detail.DMATHANGID || detail.DDICHVUID, sourceType: Number(detail.LOAI),
+      name: detail.TEN_PT || detail.TEN_DV || 'Hạng mục đã lưu',
+      group: Number(detail.LOAI) === 0 ? 'Phụ tùng' : 'Dịch vụ',
+      quantity: Number(detail.SOLUONG), price: Number(detail.DONGIA), unit: '',
+      amount: Number(detail.THANHTIEN),
+      note: detail.NOTE || '',
+    }));
+    return services.filter(s => s.checked);
+  }, [services, savedDetails, repairFlow.repairId]);
+
+  // Tổng cộng tiền
+  const subtotalAmount = useMemo(() => {
+    return selectedServices.reduce((sum, s) => sum + (s.amount ?? s.price * (s.quantity || 1)), 0);
+  }, [selectedServices]);
+  const activeSavedOrder = repairFlow.repairId && savedOrder?.ID === repairFlow.repairId ? savedOrder : null;
+  const savedInvoice = activeSavedOrder?.invoice;
+  const chargeRates = savedInvoice
+    ? { taxRate: Number(savedInvoice.TILETHUE || 0), serviceRate: Number(savedInvoice.TILEPHIDICHVU || 0) }
+    : activeSavedOrder
+      ? { taxRate: Number(activeSavedOrder.TILETHUE || 0), serviceRate: Number(activeSavedOrder.TILEPHIDICHVU || 0) }
+      : chargeConfig.rates;
+  const showRepairTax = chargeRates.taxEnabled !== false && (!activeSavedOrder || Number(activeSavedOrder.TILETHUE) > 0 || Number(activeSavedOrder.TIENTHUE) > 0);
+  const showRepairService = chargeRates.serviceEnabled !== false && (!activeSavedOrder || Number(activeSavedOrder.TILEPHIDICHVU) > 0 || Number(activeSavedOrder.PHIDICHVU) > 0);
+  const currentCustomer = customerOptions.find(customer => customer.ID === vehicleInfo.customerId);
+  const appliedDiscount = discountPolicy(currentCustomer, discountOverride);
+  const pricedServices = selectedServices.map(item => ({...item,amount:item.amount ?? item.price * (item.quantity || 1),
+    discountRate: item.TILEGIAMGIA,
+    ...taxPolicy(item,chargeRates,item.TILETHUE)}));
+  const snapshot = savedInvoice || activeSavedOrder;
+  const billReduction = billDiscount(pricedServices, appliedDiscount.discountRate, discountMoney);
+  const discountAmount = snapshot ? Number(snapshot.TIENGIAMGIA || 0) : subtotalAmount * appliedDiscount.discountRate / 100;
+  const chargeTotals = snapshot
+    ? { subtotal: savedInvoice ? Number(savedInvoice.TIENPHUTUNG || 0) + Number(savedInvoice.TIENCONG || 0) : subtotalAmount, discount: discountAmount,
+        tax: Number(snapshot.TIENTHUE || 0), serviceFee: Number(snapshot.PHIDICHVU || 0), total: Number(snapshot.TONGCONG || 0), taxGroups:snapshot.taxGroups || [] }
+    : calculate(pricedServices, chargeRates, billReduction.percent, billReduction.fixed);
+  const totalAmount = chargeTotals.total;
+  const acceptedServices = selectedServices.filter(item => !declinedItemIds.includes(item.id));
+  const confirmationPreview = useMemo(() => {
+    const lines = acceptedServices.map(item => ({id:item.id,amount:item.amount,discountRate:Number(item.TILECHIETKHAU || 0),taxRate:Number(item.TILETHUE ?? chargeRates.taxRate)}));
+    try {
+      const reduction = billDiscount(lines,Number(activeSavedOrder?.TILEGIAMGIA || 0),activeSavedOrder?.TIENGIAMGIAPHIEU);
+      if (activeSavedOrder?.TIENGIAMGIAPHIEU != null && Number(activeSavedOrder.TIENGIAMGIAPHIEU) > reduction.base) throw new Error('Tiền giảm cố định đang lớn hơn tiền các hạng mục khách chọn. Vui lòng kiểm tra lại trước khi xác nhận.');
+      return {totals:calculate(lines,chargeRates,reduction.percent,reduction.fixed),error:''};
+    } catch (error) { return {totals:null,error:error.message}; }
+  }, [savedDetails,declinedItemIds,activeSavedOrder,chargeRates.taxRate,chargeRates.serviceRate]);
+  const handlePrintRepairDocument = async () => {
+    if (!can('REPAIR',17) || savingProcess) return;
+    try {
+      const {type,id}=await resolveRepairPrintDocument({state:repairFlow.workflowState,repairId:repairFlow.repairId,quoteId:activeSavedOrder?.TBAOGIAID,invoiceId:savedInvoice?.ID},{
+        loadOrder:async repairId=>{const order=await repairOrders.get(repairId);setSavedOrder(order);return order;},
+        createQuote:async repairId=>{const result=await api.post(`/repair-orders/${encodeURIComponent(repairId)}/quote`);setSavedOrder(current=>({...current,TBAOGIAID:result.data.quoteId}));return result.data;},
+      });
+      openDocumentPrint({type,types:[type],id,autoPreview:true});
+    } catch (error) { showToast(error.response?.data?.error || error.message || 'Không thể mở bản in.'); }
+  };
+  const chargeSummary = <>
+    <ChargeSummary subtotal={chargeTotals.subtotal} discount={chargeTotals.discount} totals={chargeTotals}
+      discountControl={<>
+        <DiscountFields name="sửa chữa"
+          percent={snapshot ? Number(snapshot.TILEGIAMGIA || 0) : billReduction.percent}
+          amount={snapshot ? Math.max(0, Number(snapshot.TIENGIAMGIA || 0) - savedDetails.reduce((sum, line) => sum + Number(line.TIENCHIETKHAU || 0), 0)) : chargeTotals.billDiscount}
+          base={billReduction.base} disabled={savingProcess || !!activeSavedOrder || !canEditPolicy}
+          onPercent={value => { setDiscountOverride(value); setDiscountMoney(null); }}
+          onAmount={value => setDiscountMoney(value)} />
+        {(chargeTotals.lineDiscount || savedDetails.reduce((sum, line) => sum + Number(line.TIENCHIETKHAU || 0), 0)) > 0 && (
+          <div style={{display:'flex',justifyContent:'space-between',padding:'4px 0',color:'#64748B'}}>
+            <span>Giảm giá hạng mục</span><span>{Number(chargeTotals.lineDiscount ?? savedDetails.reduce((sum, line) => sum + Number(line.TIENCHIETKHAU || 0), 0)).toLocaleString('vi-VN')} đ</span>
+          </div>
+        )}
+      </>}
+      rates={{...chargeRates,taxEnabled:showRepairTax,serviceEnabled:showRepairService}} loading={!savedInvoice && chargeConfig.loading} error={!savedInvoice && chargeConfig.error} onRetry={chargeConfig.reload} />
+  </>;
+  useEffect(() => {
+    if (String(restoredDraftCustomer.current) === String(vehicleInfo.customerId)) {
+      restoredDraftCustomer.current = null;
+    } else { setDiscountOverride(null); setDiscountMoney(null); }
+  }, [vehicleInfo.customerId]);
+
+  const businessStage = Math.max(0, Math.min(4, Number(repairFlow.workflowState ?? 0)));
+  const processStage = repairFlow.repairId ? Math.max(1, businessStage) : businessStage;
+  const isFlowCompleted = Number(repairFlow.workflowState) === 4;
+  const isServiceSelectionLocked = Boolean(repairFlow.repairId);
+  const activeVehicleFlow = vehicleFlowOptions.find((flow) => Number(flow.TRANGTHAI) < 4) || null;
+  const processLabels = ['Tiếp nhận & Báo giá', 'Xác nhận sửa chữa', 'Đang sửa', 'Giao xe', 'Hoàn thành'];
+  const shortProcessLabels = ['Báo giá', 'Xác nhận', 'Đang sửa', 'Giao xe', 'Hoàn tất'];
+
+  const refreshWorkflowImages = async (workflowId = repairFlow.workflowId) => {
+    if (!workflowId) {
+      setWorkflowImages([]);
+      return [];
+    }
+    const rows = await workflow.images(workflowId);
+    const list = Array.isArray(rows) ? rows : [];
+    setWorkflowImages(list);
+    return list;
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!repairFlow.workflowId) {
+      setWorkflowImages([]);
+      return undefined;
+    }
+    workflow.images(repairFlow.workflowId)
+      .then((rows) => { if (!cancelled) setWorkflowImages(Array.isArray(rows) ? rows : []); })
+      .catch((error) => { if (!cancelled) showToast(error?.response?.data?.error || 'Không thể tải ảnh trạng thái.'); });
+    return () => { cancelled = true; };
+  }, [repairFlow.workflowId]);
+
+  useEffect(() => {
+    setSelectedImageState(businessStage);
+  }, [repairFlow.workflowId, repairFlow.workflowState]);
+
+  const handleWorkflowImageFiles = async (event) => {
+    const files = Array.from(event.target.files || []);
+    event.target.value = '';
+    if (!files.length) return;
+    const currentCount = repairFlow.workflowId
+      ? workflowImages.filter((item) => Number(item.TRANGTHAI) === selectedImageState).length
+      : draftWorkflowImages.length;
+    const available = MAX_WORKFLOW_IMAGES - currentCount;
+    if (available <= 0) return showToast(`Mỗi trạng thái lưu tối đa ${MAX_WORKFLOW_IMAGES} ảnh.`);
+
+    setUploadingImages(true);
+    try {
+      const prepared = await Promise.all(files.slice(0, available).map(compressWorkflowImage));
+      if (!repairFlow.workflowId) {
+        if (selectedImageState !== 0) return showToast('Hãy lưu Tiếp nhận & Báo giá trước khi thêm ảnh cho bước này.');
+        setDraftWorkflowImages((current) => [...current, ...prepared]);
+        showToast(`Đã chọn ${prepared.length} ảnh; ảnh sẽ lưu cùng phiếu tiếp nhận.`);
+        return;
+      }
+      await workflow.uploadImages({
+        TTRANGTHAIXEID: repairFlow.workflowId,
+        DXEID: vehicleInfo.vehicleId,
+        TLENHSUACHUAID: repairFlow.repairId,
+        TRANGTHAI: selectedImageState,
+        images: prepared,
+      });
+      await refreshWorkflowImages(repairFlow.workflowId);
+      showToast(`Đã lưu ${prepared.length} ảnh cho bước ${processLabels[selectedImageState]}.`);
+    } catch (error) {
+      showToast(error?.response?.data?.error || error.message || 'Không thể lưu ảnh trạng thái.');
+    } finally {
+      setUploadingImages(false);
+    }
+  };
+
+  const handleDeleteWorkflowImage = async (image) => {
+    try {
+      await workflow.deleteImage(image.ID);
+      await refreshWorkflowImages(repairFlow.workflowId);
+      showToast('Đã xóa ảnh khỏi trạng thái.');
+    } catch (error) {
+      showToast(error?.response?.data?.error || 'Không thể xóa ảnh trạng thái.');
+    }
+  };
+
+  const visibleWorkflowImages = repairFlow.workflowId
+    ? workflowImages.filter((item) => Number(item.TRANGTHAI) === selectedImageState)
+    : selectedImageState === 0 ? draftWorkflowImages : [];
+
+  const loadRepairFlow = async (flow, requestId = vehicleSelectionRequest.current, catalog = null) => {
+    if (!flow) return;
+    setSavedDetails([]);
+    setSavedOrder(null);
+    setShowSupplements(false);
+    setRepairFlow({
+      repairId: flow.TLENHSUACHUAID || null,
+      workflowId: flow.ID || null,
+      receptionId: flow.TTIEPNHANXEID || null,
+      workflowState: Number(flow.TRANGTHAI),
+    });
+    setVehicleInfo((current) => ({
+      ...current,
+      receiptCode: flow.SOPHIEU || flow.SOPHIEUTIEPNHAN || current.receiptCode,
+    }));
+    setServices((current) => (catalog || current).map((item) => ({ ...item, checked: false })));
+    if (!flow.TLENHSUACHUAID) {
+      const vehicle = vehicleOptions.find(item => item.ID === vehicleInfo.vehicleId);
+      if (vehicle) restoreReceptionDraft(vehicle, catalog || services, flow);
+      return;
+    }
+    const order = await repairOrders.get(flow.TLENHSUACHUAID).catch((error) => {
+      showToast(error?.response?.data?.error || 'Không thể tải lại các hạng mục của số phiếu đã chọn.');
+      return null;
+    });
+    if (requestId !== vehicleSelectionRequest.current || !order) return;
+    setSavedDetails(order.details || []);
+    setSavedOrder(order);
+    const detailIds = new Set((order.details || []).map((detail) => detail.DMATHANGID || detail.DDICHVUID));
+    setServices((current) => (catalog || current).map((item) => ({ ...item, checked: detailIds.has(item.sourceId) })));
+  };
+
+  const handleSelectRepairFlow = async (workflowId) => {
+    const flow = vehicleFlowOptions.find((item) => String(item.ID) === String(workflowId));
+    if (!flow || String(flow.ID) === String(repairFlow.workflowId)) return;
+    const requestId = ++vehicleSelectionRequest.current;
+    setDraftSavedAt('');
+    setWorkflowImages([]);
+    setDraftWorkflowImages([]);
+    setSelectedImageState(Math.max(0, Math.min(4, Number(flow.TRANGTHAI || 0))));
+    await loadRepairFlow(flow, requestId);
+  };
+
+  const updateSelectedFlowState = (state) => {
+    setVehicleFlowOptions((current) => current.map((flow) => (
+      String(flow.ID) === String(repairFlow.workflowId)
+        ? { ...flow, TRANGTHAI: state, TRANGTHAI_TEN: processLabels[state] }
+        : flow
+    )));
+  };
+
+  const selectVehicle = async (vehicleId, source = vehicleOptions) => {
+    const selected = source.find((item) => item.ID === vehicleId);
+    if (!selected) return;
+    const requestId = ++vehicleSelectionRequest.current;
+    setSavedOrder(null);
+    setSavedDetails([]);
+    setRepairNotes('');
+    setRepairFlow({ repairId: null, workflowId: null, receptionId: null, workflowState: null });
+    setVehicleFlowOptions([]);
+    setWorkflowImages([]);
+    setDraftWorkflowImages([]);
+    setSelectedImageState(0);
+    setDraftSavedAt('');
+    setDiscountOverride(null);
+    setDiscountMoney(null);
+    setServices((current) => current.map((item) => ({ ...item, checked: false, quantity: 1, note: '', TILEGIAMGIA: null })));
+    setVehicleInfo((current) => ({
+      ...current, vehicleId: selected.ID, customerId: selected.DKHACHHANGID || '',
+      plate: selected.BIENSO || '', customer: selected.TEN_KH || '',
+      currentKm: Number(selected.ODO || 0).toLocaleString('vi-VN'),
+      carModel: [selected.HANG_XE, selected.DONG_XE, selected.PHIENBAN].filter(Boolean).join(' '),
+      receiptCode: '',
+    }));
+    const flowRows = await workflow.byVehicleAll(selected.ID).catch(() => []);
+    if (requestId !== vehicleSelectionRequest.current) return;
+    const flowOptions = Array.isArray(flowRows) ? flowRows : [];
+    setVehicleFlowOptions(flowOptions);
+    const activeFlow = flowOptions[0] || null;
+    if ((!activeFlow?.TLENHSUACHUAID || Number(activeFlow.TRANGTHAI) === 4)
+      && restoreReceptionDraft(selected, services, Number(activeFlow?.TRANGTHAI) === 4 ? null : activeFlow)) return;
+    if (activeFlow) {
+      await loadRepairFlow(activeFlow, requestId);
+    }
+  };
+
+  const restoreReceptionDraft = (vehicle, catalog, flow = null) => {
+    try {
+      const draft = readRepairDraft(localStorage, vehicle.ID, vehicle.DKHACHHANGID || '', flow?.ID);
+      if (!draft) return false;
+      setRepairFlow({ repairId: null, workflowId: flow?.ID || null,
+        receptionId: flow?.TTIEPNHANXEID || null, workflowState: flow ? Number(flow.TRANGTHAI) : null });
+      setSavedOrder(null); setSavedDetails([]);
+      setServices(restoreDraftItems(catalog, draft));
+      setVehicleInfo(current => ({ ...current, ...draft.fields, receiptCode: flow?.SOPHIEUTIEPNHAN || '' }));
+      setRepairNotes(draft.repairNotes || '');
+      restoredDraftCustomer.current = vehicle.DKHACHHANGID || '';
+      setDiscountOverride(draft.discountOverride ?? null);
+      setDiscountMoney(draft.discountMoney ?? null);
+      setDraftWorkflowImages(draft.images || []);
+      setDraftSavedAt(draft.savedAt);
+      showToast('Đã khôi phục bản lưu tạm của xe.');
+      return true;
+    } catch {
+      showToast('Không thể đọc bản lưu tạm trên trình duyệt này.');
+      return false;
+    }
+  };
+
+  const handleSaveDraft = () => {
+    if (repairFlow.repairId || savingProcess) return;
+    if (!vehicleInfo.vehicleId) return showToast('Vui lòng chọn xe trước khi lưu tạm.');
+    try {
+      const { date, staff, status, currentKm, note } = vehicleInfo;
+      const draft = saveRepairDraft(localStorage, {
+        vehicleId: vehicleInfo.vehicleId, customerId: vehicleInfo.customerId,
+        workflowId: repairFlow.workflowId, fields: { date, staff, status, currentKm, note },
+        repairNotes, discountOverride, discountMoney, images: draftWorkflowImages,
+        items: selectedServices.map(({ id, quantity, price, note, TILETHUE, TILEGIAMGIA }) => ({ id, quantity, price, note, TILETHUE, TILEGIAMGIA })),
+      });
+      setDraftSavedAt(draft.savedAt);
+      showToast('Đã lưu tạm. Tải lại trang sẽ khôi phục các hạng mục đã chọn.');
+    } catch {
+      showToast('Không thể lưu tạm trên trình duyệt. Bộ nhớ có thể đã đầy hoặc bị chặn; hãy giảm số ảnh rồi thử lại.');
+    }
+  };
+
+  const openAddVehicle = () => {
+    if (!can('REPAIR',2) && !can('VEHICLES',2)) return;
+    setNewVehicle({
+      BIENSO: '', DKHACHHANGID: '', DHANGXEID: '', DDONGXEID: '', PHIENBAN: '',
+      NAMSANXUAT: '', MAUXE: '', SOKHUNG: '', SOMAY: '', ODO: '0',
+      NHIENLIEU: '', MUCNHIENLIEU: '50', GHICHU: '',
+    });
+    setShowAddVehicle(true);
+  };
+
+  const updateNewVehicle = (field, value) => {
+    setNewVehicle((current) => ({ ...current, [field]: value, ...(field === 'DHANGXEID' ? { DDONGXEID: '' } : {}) }));
+  };
+
+  const openAddCustomer = () => {
+    if (!can('REPAIR',2) && !can('CUSTOMERS',2)) return;
+    const retailGroup = customerGroups.find((group) => String(group.NAME || '').toLocaleLowerCase('vi').replace(/\s/g, '').includes('kháchlẻ'));
+    setNewCustomer({
+      NAME: '', DNHOMKHACHHANGID: retailGroup?.ID || '', MAKHACH: '',
+      DIENTHOAI: '', EMAIL: '', MASOTHUE: '', DIACHI: '',
+    });
+    setShowAddCustomer(true);
+  };
+
+  const openAddCustomerGroup = () => {
+    if (!canQuickCreate('customer_groups')) return;
+    setNewCustomerGroupName('');
+    setShowAddCustomerGroup(true);
+  };
+
+  const handleCreateCustomerGroup = async (event) => {
+    event.preventDefault();
+    const name = newCustomerGroupName.trim();
+    if (!name) return showToast('Vui lòng nhập tên nhóm khách hàng.');
+    const existed = customerGroups.find((group) => String(group.NAME || '').trim().toLocaleLowerCase('vi') === name.toLocaleLowerCase('vi'));
+    if (existed) {
+      setNewCustomer((current) => ({ ...current, DNHOMKHACHHANGID: existed.ID }));
+      setShowAddCustomerGroup(false);
+      return showToast('Nhóm khách hàng đã tồn tại và đã được chọn.');
+    }
+    setSavingCustomerGroup(true);
+    try {
+      const result = await masterData.create('customer_groups', { NAME: name, SORTORDER: customerGroups.length + 1 });
+      const rows = await masterData.customerGroups();
+      const list = Array.isArray(rows) ? rows : [];
+      setCustomerGroups(list);
+      setNewCustomer((current) => ({ ...current, DNHOMKHACHHANGID: result.id }));
+      setShowAddCustomerGroup(false);
+      showToast(`Đã thêm nhóm khách hàng ${name}.`);
+    } catch (error) {
+      showToast(error?.response?.data?.error || error.message || 'Không thể thêm nhóm khách hàng.');
+    } finally {
+      setSavingCustomerGroup(false);
+    }
+  };
+
+  const openAddBrand = () => {
+    if (!canQuickCreate('brands')) return;
+    setNewBrandName('');
+    setShowAddBrand(true);
+  };
+
+  const openAddModel = () => {
+    if (!canQuickCreate('models')) return;
+    if (!newVehicle.DHANGXEID) return showToast('Vui lòng chọn hãng xe trước khi thêm dòng xe.');
+    setNewModelName('');
+    setShowAddModel(true);
+  };
+
+  const handleCreateBrand = async (event) => {
+    event.preventDefault();
+    const name = newBrandName.trim();
+    if (!name) return showToast('Vui lòng nhập tên hãng xe.');
+    const existed = vehicleBrands.find((brand) => brand.NAME?.trim().toLocaleLowerCase('vi') === name.toLocaleLowerCase('vi'));
+    if (existed) {
+      updateNewVehicle('DHANGXEID', existed.ID);
+      setShowAddBrand(false);
+      return showToast('Hãng xe đã tồn tại và đã được chọn.');
+    }
+    setSavingVehicleMaster(true);
+    try {
+      const result = await masterData.create('brands', { NAME: name, CODE: name.toUpperCase().replace(/\s+/g, '-'), SORTORDER: vehicleBrands.length + 1 });
+      const meta = await vehicles.meta();
+      setVehicleBrands(Array.isArray(meta?.brands) ? meta.brands : []);
+      setVehicleModels(Array.isArray(meta?.models) ? meta.models : []);
+      updateNewVehicle('DHANGXEID', result.id);
+      setShowAddBrand(false);
+      showToast(`Đã thêm hãng xe ${name}.`);
+    } catch (error) {
+      showToast(error?.response?.data?.error || error.message || 'Không thể thêm hãng xe.');
+    } finally {
+      setSavingVehicleMaster(false);
+    }
+  };
+
+  const handleCreateModel = async (event) => {
+    event.preventDefault();
+    const name = newModelName.trim();
+    if (!name) return showToast('Vui lòng nhập tên dòng xe.');
+    const existed = vehicleModels.find((model) => model.DHANGXEID === newVehicle.DHANGXEID && model.NAME?.trim().toLocaleLowerCase('vi') === name.toLocaleLowerCase('vi'));
+    if (existed) {
+      updateNewVehicle('DDONGXEID', existed.ID);
+      setShowAddModel(false);
+      return showToast('Dòng xe đã tồn tại và đã được chọn.');
+    }
+    setSavingVehicleMaster(true);
+    try {
+      const result = await masterData.create('models', {
+        NAME: name, CODE: name.toUpperCase().replace(/\s+/g, '-'),
+        DHANGXEID: newVehicle.DHANGXEID, SORTORDER: vehicleModels.filter((model) => model.DHANGXEID === newVehicle.DHANGXEID).length + 1,
+      });
+      const meta = await vehicles.meta();
+      setVehicleBrands(Array.isArray(meta?.brands) ? meta.brands : []);
+      setVehicleModels(Array.isArray(meta?.models) ? meta.models : []);
+      updateNewVehicle('DDONGXEID', result.id);
+      setShowAddModel(false);
+      showToast(`Đã thêm dòng xe ${name}.`);
+    } catch (error) {
+      showToast(error?.response?.data?.error || error.message || 'Không thể thêm dòng xe.');
+    } finally {
+      setSavingVehicleMaster(false);
+    }
+  };
+
+  const handleCreateVehicle = async (event) => {
+    event.preventDefault();
+    if (!newVehicle.BIENSO.trim()) return showToast('Vui lòng nhập biển số xe.');
+    if (!newVehicle.DKHACHHANGID) return showToast('Vui lòng chọn khách hàng/chủ xe.');
+    if (!newVehicle.DHANGXEID || !newVehicle.DDONGXEID) return showToast('Vui lòng chọn hãng xe và dòng xe.');
+    setSavingVehicle(true);
+    try {
+      const result = await vehicles.create({
+        ...newVehicle,
+        BIENSO: newVehicle.BIENSO.trim().toUpperCase(),
+        NAMSANXUAT: newVehicle.NAMSANXUAT ? Number(newVehicle.NAMSANXUAT) : null,
+        ODO: Math.max(0, Number(newVehicle.ODO) || 0),
+        MUCNHIENLIEU: Math.max(0, Math.min(100, Number(newVehicle.MUCNHIENLIEU) || 0)),
+      });
+      const rows = await vehicles.list();
+      const list = Array.isArray(rows) ? rows : [];
+      setVehicleOptions(list);
+      setShowAddVehicle(false);
+      await selectVehicle(result.id, list);
+      showToast(`Đã thêm xe ${newVehicle.BIENSO.trim().toUpperCase()} thành công.`);
+    } catch (error) {
+      showToast(error?.response?.data?.error || error.message || 'Không thể thêm xe.');
+    } finally {
+      setSavingVehicle(false);
+    }
+  };
+
+  const openAddEmployee = () => {
+    setNewEmployee({
+      NAME: '', CODE: '', DIENTHOAI: '', EMAIL: '', DIACHI: '', DEPARTMENT: 'Dịch vụ',
+      CERT: '', CHUYENMON: '', LOAINHANVIEN: '1', ROLEKEY: '1', ROLELABEL: 'Kỹ thuật viên',
+    });
+    setShowAddEmployee(true);
+  };
+
+  const handleCreateEmployee = async (event) => {
+    event.preventDefault();
+    if (!newEmployee.NAME.trim()) return showToast('Vui lòng nhập họ tên nhân viên.');
+    if (!newEmployee.DIENTHOAI.trim()) return showToast('Vui lòng nhập số điện thoại nhân viên.');
+    setSavingEmployee(true);
+    try {
+      const result = await employees.create({
+        ...newEmployee,
+        NAME: newEmployee.NAME.trim(),
+        CODE: newEmployee.CODE.trim().toUpperCase(),
+        DIENTHOAI: newEmployee.DIENTHOAI.trim(),
+        LOAINHANVIEN: Number(newEmployee.LOAINHANVIEN),
+        NOTE: JSON.stringify({
+          chucVu: newEmployee.ROLELABEL,
+          phongBan: newEmployee.DEPARTMENT,
+          email: newEmployee.EMAIL.trim(),
+          chungChi: newEmployee.CERT.trim(),
+        }),
+      });
+      const rows = await employees.list();
+      const list = Array.isArray(rows) ? rows : [];
+      setEmployeeOptions(list);
+      setVehicleInfo((current) => ({ ...current, staff: result.id }));
+      setShowAddEmployee(false);
+      showToast(`Đã thêm và chọn nhân viên ${newEmployee.NAME.trim()}.`);
+    } catch (error) {
+      showToast(error?.response?.data?.error || error.message || 'Không thể thêm nhân viên.');
+    } finally {
+      setSavingEmployee(false);
+    }
+  };
+
+  const openAddEmployeeDropdownOption = (type) => {
+    setEmployeeOptionType(type);
+    setNewEmployeeOptionName('');
+    setShowAddEmployeeOption(true);
+  };
+
+  const handleAddEmployeeDropdownOption = (event) => {
+    event.preventDefault();
+    const name = newEmployeeOptionName.trim();
+    if (!name) return showToast(`Vui lòng nhập tên ${employeeOptionType === 'role' ? 'chức vụ' : 'phòng ban'}.`);
+    if (employeeOptionType === 'role') {
+      const existing = employeeRoleOptions.find((item) => item.label.toLocaleLowerCase('vi') === name.toLocaleLowerCase('vi'));
+      const option = existing || { key: `custom:${name}`, label: name };
+      if (!existing) setEmployeeRoleOptions((current) => [...current, option]);
+      setNewEmployee((current) => ({ ...current, ROLEKEY: option.key, ROLELABEL: option.label, LOAINHANVIEN: option.key.startsWith('custom:') ? '0' : option.key }));
+    } else {
+      const existing = employeeDepartmentOptions.find((item) => item.toLocaleLowerCase('vi') === name.toLocaleLowerCase('vi'));
+      const value = existing || name;
+      if (!existing) setEmployeeDepartmentOptions((current) => [...current, value]);
+      setNewEmployee((current) => ({ ...current, DEPARTMENT: value }));
+    }
+    setShowAddEmployeeOption(false);
+    showToast(`Đã thêm ${employeeOptionType === 'role' ? 'chức vụ' : 'phòng ban'} ${name}.`);
+  };
+
+  const canProcess = !repairFlow.repairId ? can('REPAIR',2) : (repairFlow.workflowState === 3 ? can('PAYMENTS',4) : can('REPAIR',4) && can(repairFlow.workflowState <= 1 ? 'ASSIGN_REPAIR' : workflowPermission(repairFlow.workflowState + 1),4));
+  const handleProcessAction = async () => {
+    const allowed = canProcess;
+    if (!allowed) return showToast('Bạn chưa được cấp quyền thao tác ở bước này.');
+    if (!repairFlow.repairId && (chargeConfig.loading || chargeConfig.error)) return showToast(chargeConfig.error || 'Đang tải cấu hình thuế và phí dịch vụ.');
+    if (!vehicleInfo.vehicleId || !vehicleInfo.customerId) return showToast('Vui lòng chọn xe có khách hàng/chủ xe.');
+    if (!repairFlow.repairId && !selectedServices.length) return showToast('Vui lòng chọn ít nhất 1 dịch vụ hoặc phụ tùng.');
+    setSavingProcess(true);
+    try {
+      if (!repairFlow.repairId) {
+        let receptionId = repairFlow.receptionId;
+        if (!receptionId) {
+          const reception = await repairOrders.createReception({
+            NGAY: vehicleInfo.date, DXEID: vehicleInfo.vehicleId, DKHACHHANGID: vehicleInfo.customerId,
+            DNHANVIENCOOVANID: vehicleInfo.staff || null,
+            ODO: Number(String(vehicleInfo.currentKm).replace(/\D/g, '')) || 0,
+            TINHTRANGXE: vehicleInfo.status, YEUCAUKHACH: repairNotes,
+            PHUKIENDETRENKXE: vehicleInfo.note,
+          });
+          receptionId = reception.id;
+        }
+        const result = await repairOrders.create({
+          DXEID: vehicleInfo.vehicleId, DKHACHHANGID: vehicleInfo.customerId,
+          TTIEPNHANXEID: receptionId, NGAY: vehicleInfo.date, NOTE: repairNotes,
+          TILETHUE: chargeRates.taxRate, TILEPHIDICHVU: chargeRates.serviceRate,
+          TILEGIAMGIA: discountMoney != null ? billReduction.percent : discountOverride == null ? null : Number(discountOverride),
+          TIENGIAMGIAPHIEU: billReduction.fixed,
+          items: selectedServices.map((item) => ({
+            LOAI: item.sourceType, DMATHANGID: item.sourceType === 0 ? item.sourceId : null,
+            DDICHVUID: item.sourceType === 1 ? item.sourceId : null,
+            DDONVITINHID: item.unitId, SOLUONG: item.quantity || 1,
+            DONGIA: item.price, NOTE: item.note, TILETHUE:item.TILETHUE, TILEGIAMGIA:item.TILEGIAMGIA,
+          })),
+        });
+        const savedWorkflowState = Number(result.workflowState ?? 1);
+        try { removeRepairDraft(localStorage, vehicleInfo.vehicleId); } catch {}
+        setDraftSavedAt('');
+        setRepairFlow({ repairId: result.id, workflowId: result.workflowId || repairFlow.workflowId, receptionId, workflowState: savedWorkflowState });
+        const order = await repairOrders.get(result.id);
+        setSavedDetails(order.details || []);
+        setSavedOrder(order);
+        setVehicleInfo((current) => ({ ...current, receiptCode: result.code || current.receiptCode }));
+        const createdWorkflowId = result.workflowId || repairFlow.workflowId;
+        const refreshedFlows = await workflow.byVehicleAll(vehicleInfo.vehicleId).catch(() => []);
+        if (Array.isArray(refreshedFlows)) setVehicleFlowOptions(refreshedFlows);
+        if (createdWorkflowId && draftWorkflowImages.length) {
+          try {
+            await workflow.uploadImages({
+              TTRANGTHAIXEID: createdWorkflowId,
+              DXEID: vehicleInfo.vehicleId,
+              TLENHSUACHUAID: result.id,
+              TRANGTHAI: 0,
+              images: draftWorkflowImages,
+            });
+            setDraftWorkflowImages([]);
+            await refreshWorkflowImages(createdWorkflowId);
+            showToast(`Đã lưu Tiếp nhận & Báo giá cùng ${draftWorkflowImages.length} ảnh. Hồ sơ đang chờ xác nhận sửa chữa.`);
+          } catch (imageError) {
+            showToast(imageError?.response?.data?.error || 'Phiếu đã lưu nhưng chưa thể lưu ảnh trạng thái.');
+          }
+        } else {
+          showToast('Đã lưu Tiếp nhận & Báo giá. Hồ sơ đang chờ duyệt / xác nhận sửa chữa.');
+        }
+      } else if (repairFlow.workflowState === 0 || repairFlow.workflowState === 1) {
+        setShowRepairConfirmation(true);
+      } else if (repairFlow.workflowState < 3) {
+        const nextState = repairFlow.workflowState + 1;
+        const nextLabel = processLabels[nextState];
+        await workflow.transition({
+          DXEID: vehicleInfo.vehicleId, TRANGTHAI: nextState,
+          DNHANVIENID: vehicleInfo.staff || 'SYSTEM',
+          LYDO: `Chuyển sang bước ${nextLabel}`, GHICHU: repairNotes,
+        });
+        setRepairFlow((current) => ({ ...current, workflowState: nextState }));
+        updateSelectedFlowState(nextState);
+        showToast(`Đã chuyển sang: ${nextLabel}.`);
+      } else if (repairFlow.workflowState === 3) {
+        setPaymentMethod('cash');
+        setAllowPaymentDebt(false);
+        setPaymentCollected('');
+        setShowPayment(true);
+      } else {
+        showToast('Phiếu sửa chữa đã hoàn thành.');
+      }
+    } catch (error) {
+      showToast(error?.response?.data?.error || error.message || 'Không thể cập nhật quy trình.');
+    } finally {
+      setSavingProcess(false);
+    }
+  };
+
+  const handleConfirmRepair = async () => {
+    if (!can('REPAIR',4) || !can('ASSIGN_REPAIR',4) || (Number(repairFlow.workflowState) === 0 && !can('APPROVE_QUOTE',4))) return showToast('Bạn chưa có quyền duyệt báo giá hoặc phân công.');
+    if (!repairAssignment.valid) return showToast('Chọn nhân viên, người phụ trách chính và chia đủ 100% trước khi xác nhận.');
+    if (!acceptedServices.length || confirmationPreview.error) return showToast(confirmationPreview.error || 'Chọn ít nhất một hạng mục khách đồng ý sửa.');
+    if (!repairFlow.repairId || ![0, 1].includes(Number(repairFlow.workflowState))) return showToast('Phiếu cần ở bước Tiếp nhận & Báo giá hoặc Xác nhận sửa chữa.');
+    setSavingProcess(true);
+    try {
+      if (Number(repairFlow.workflowState) === 0) {
+        await workflow.transition({
+          DXEID: vehicleInfo.vehicleId, TRANGTHAI: 1,
+          TLENHSUACHUAID: repairFlow.repairId,
+          DNHANVIENID: vehicleInfo.staff || 'SYSTEM',
+          LYDO: 'Duyệt báo giá và xác nhận sửa chữa', GHICHU: repairNotes,
+        });
+        setRepairFlow((current) => ({ ...current, workflowState: 1 }));
+        updateSelectedFlowState(1);
+      }
+      await workflow.transition({
+        DXEID: vehicleInfo.vehicleId, TRANGTHAI: 2,
+        TLENHSUACHUAID: repairFlow.repairId,
+        assignments: repairAssignment.assignments,
+        acceptedItemIds: acceptedServices.map(item => item.id),
+        DNHANVIENID: vehicleInfo.staff || 'SYSTEM',
+        LYDO: 'Bat dau sua chua sau khi khach hang xac nhan',
+        GHICHU: repairNotes,
+      });
+      setRepairFlow((current) => ({ ...current, workflowState: 2 }));
+      updateSelectedFlowState(2);
+      setShowRepairConfirmation(false);
+      const confirmedOrder = await repairOrders.get(repairFlow.repairId);
+      setSavedOrder(confirmedOrder);
+      setSavedDetails(confirmedOrder.details || []);
+      const acceptedSources = new Set((confirmedOrder.details || []).map(item => item.DMATHANGID || item.DDICHVUID));
+      setServices(current => current.map(item => ({...item,checked:acceptedSources.has(item.sourceId)})));
+      showToast('Đã lưu phân công, hoa hồng và chuyển sang Đang sửa.');
+    } catch (error) {
+      showToast(error?.response?.data?.error || error.message || 'Không thể xác nhận sửa chữa.');
+    } finally {
+      setSavingProcess(false);
+    }
+  };
+
+  const handlePayment = async () => {
+    if (!can('PAYMENTS',4)) return showToast('Bạn chưa có quyền thanh toán.');
+    if (chargeConfig.loading || chargeConfig.error) return showToast(chargeConfig.error || 'Đang tải cấu hình thanh toán.');
+    if (!repairFlow.repairId) return showToast('Không tìm thấy lệnh sửa chữa để thanh toán.');
+    if (totalAmount <= 0) return showToast('Tổng tiền thanh toán phải lớn hơn 0.');
+    setSavingProcess(true);
+    try {
+      const invoiceRows = await invoices.list();
+      const existing = (Array.isArray(invoiceRows) ? invoiceRows : []).find(
+        (item) => item.TLENHSUACHUAID === repairFlow.repairId
+      );
+      const payable = Number(existing?.TONGCONG ?? totalAmount);
+      const previous = ['TIENMAT', 'CHUYENKHOAN', 'THE'].reduce((sum, key) => sum + Number(existing?.[key] || 0), 0);
+      const outstanding = Math.max(0, payable - previous);
+      const debtEnabled = chargeConfig.rates.allowDebt !== false && allowPaymentDebt;
+      const collected = debtEnabled ? Number(paymentCollected || 0) : outstanding;
+      if (!Number.isFinite(collected) || collected < 0 || collected > outstanding) throw new Error('Số tiền thu phải từ 0 đến số tiền còn phải thanh toán.');
+      if (collected < outstanding && !vehicleInfo.customerId) throw new Error('Vui lòng chọn khách hàng để ghi nhận công nợ.');
+      const amounts = {
+        TIENMAT: Number(existing?.TIENMAT || 0) + (paymentMethod === 'cash' ? collected : 0),
+        CHUYENKHOAN: Number(existing?.CHUYENKHOAN || 0) + (paymentMethod === 'transfer' ? collected : 0),
+        THE: Number(existing?.THE || 0),
+        ALLOW_DEBT: debtEnabled,
+      };
+
+      let invoiceId = existing?.ID;
+      let requireBill;
+      let paymentResult;
+      if (existing) {
+        const result = await invoices.pay(existing.ID, amounts);
+        paymentResult = result;
+        requireBill = result.requireBill;
+      } else {
+        const result = await invoices.create({
+          TLENHSUACHUAID: repairFlow.repairId,
+          NGAY: new Date().toISOString().slice(0, 10),
+          TILETHUE: chargeRates.taxRate,
+          TILEPHIDICHVU: chargeRates.serviceRate,
+          ...amounts,
+        });
+        paymentResult = result;
+        invoiceId = result.id;
+        requireBill = result.requireBill;
+      }
+
+      setShowPayment(false);
+      if(requireBill)openDocumentPrint({ type: 'MauHoaDonSuaChua', id: invoiceId, requiredPrint: true, autoPrint: true });
+      const paidOrder = await repairOrders.get(repairFlow.repairId);
+      setSavedOrder(paidOrder);
+      if (!paymentResult.completed) {
+        showToast(`Đã ghi nhận thanh toán và công nợ ${formatMoney(paymentResult.remaining)}.${requireBill ? ' Vui lòng in bill.' : ''}`);
+        return;
+      }
+      setRepairFlow((current) => ({ ...current, workflowState: 4 }));
+      updateSelectedFlowState(4);
+      setShowPayment(false);
+      showToast(paymentResult.paid
+        ? 'Thanh toán thành công. Phiếu đã chuyển sang Hoàn thành.'
+        : `Phiếu đã chuyển sang Hoàn thành. Đã ghi nhận công nợ ${formatMoney(paymentResult.remaining)}.`);
+    } catch (error) {
+      showToast(error?.response?.data?.error || error.message || 'Không thể thanh toán phiếu sửa chữa.');
+    } finally {
+      setSavingProcess(false);
+    }
+  };
+
+  const handleStartNewRepairVisit = () => {
+    setSavedOrder(null);
+    setSavedDetails([]);
+    setDiscountOverride(null);
+    setDiscountMoney(null);
+    chargeConfig.reload();
+    // Giữ nguyên hồ sơ xe/khách hàng, chỉ tách khỏi lượt sửa chữa đã hoàn thành.
+    // Lượt mới sẽ được ghi thành phiếu tiếp nhận, lệnh sửa chữa và workflow mới
+    // khi người dùng chọn hạng mục rồi bấm Lưu Tiếp nhận & Báo giá.
+    vehicleSelectionRequest.current += 1;
+    setRepairFlow({ repairId: null, workflowId: null, receptionId: null, workflowState: null });
+    setWorkflowImages([]);
+    setDraftWorkflowImages([]);
+    setSelectedImageState(0);
+    setServices((current) => current.map((item) => ({ ...item, checked: false, quantity: 1, note: '', TILEGIAMGIA: null })));
+    setSearchTerm('');
+    setShowPayment(false);
+    setShowRepairConfirmation(false);
+    setVehicleInfo((current) => ({
+      ...current,
+      date: new Date().toISOString().slice(0, 10),
+      status: 'Đang kiểm tra',
+      staff: '',
+      receiptCode: '',
+      note: '',
+    }));
+    setRepairNotes('');
+    setDraftSavedAt('');
+    const selected = vehicleOptions.find(vehicle => vehicle.ID === vehicleInfo.vehicleId);
+    if (selected && restoreReceptionDraft(selected, services)) return;
+    showToast(`Đã mở lượt sửa chữa mới cho xe ${vehicleInfo.plate}.`);
+  };
+
+  // Format tiền tệ
+  const formatMoney = (val) => {
+    return (val || 0).toLocaleString('vi-VN') + 'đ';
+  };
+
+  const formatNumber = (val) => {
+    return (val || 0).toLocaleString('vi-VN');
+  };
+
+  // Toggle chọn 1 dịch vụ
+  const handleToggle = (id) => {
+    if (isServiceSelectionLocked) return;
+    setServices(prev => prev.map(s => s.id === id ? { ...s, checked: !s.checked } : s));
+  };
+
+  // Chọn tất cả
+  const handleSelectAll = () => {
+    if (isServiceSelectionLocked) return;
+    setServices(prev => prev.map(s => ({ ...s, checked: true })));
+    showToast('Đã chọn tất cả dịch vụ');
+  };
+
+  // Bỏ chọn tất cả
+  const handleDeselectAll = () => {
+    if (isServiceSelectionLocked) return;
+    setServices(prev => prev.map(s => ({ ...s, checked: false })));
+    showToast('Đã bỏ chọn tất cả dịch vụ');
+  };
+
+  // Làm mới về mặc định
+  const handleReset = () => {
+    setSearchTerm('');
+    setServices(prev => prev.map((s, idx) => ({
+      ...s,
+      checked: [1, 2, 3, 5, 7, 10].includes(s.id)
+    })));
+    showToast('Đã làm mới danh sách dịch vụ');
+  };
+
+  // Render icon nhóm
+  const renderGroupIcon = (type, color) => {
+    switch (type) {
+      case 'gear':
+        return <SettingsIcon size={12} color={color} />;
+      case 'filter':
+        return <Filter size={12} color={color} />;
+      case 'disc':
+        return <Disc size={12} color={color} />;
+      case 'circle-dot':
+        return <CircleDot size={12} color={color} />;
+      case 'battery':
+        return <BatteryCharging size={12} color={color} />;
+      case 'zap':
+        return <Zap size={12} color={color} />;
+      case 'thermometer':
+        return <Thermometer size={12} color={color} />;
+      default:
+        return <MoreHorizontal size={12} color={color} />;
+    }
+  };
+
+  return (
+    <div className="page-responsive-container suachua-page-container" style={{
+      display: 'flex',
+      flexDirection: 'column',
+      width: '100%',
+      boxSizing: 'border-box',
+      gap: 'clamp(4px, 0.7vh, 8px)',
+      fontSize: 'clamp(10.5px, 0.8vw, 12.5px)',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
+    }}>
+      {/* Toast thông báo */}
+      {toastMessage && (
+        <div role="status" aria-live="polite" style={{
+          position: 'fixed',
+          top: 115,
+          right: 20,
+          background: '#2E7D32',
+          color: '#fff',
+          padding: '7px 16px',
+          borderRadius: 6,
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          fontWeight: 600,
+          fontSize: 12
+        }}>
+          <CheckCircle size={15} />
+          {toastMessage}
+        </div>
+      )}
+
+      {/* Header trang: Bảng kê các dịch vụ cần thay thế / sửa chữa */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        flexShrink: 0
+      }}>
+        <div style={{
+          width: 26,
+          height: 26,
+          borderRadius: 4,
+          background: '#E65100',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#fff'
+        }}>
+          <Wrench size={16} />
+        </div>
+        <h1 style={{ margin: 0, fontSize: 'clamp(14px, 1.15vw, 17px)', fontWeight: 700, color: '#0F172A' }}>
+          Bảng kê các dịch vụ cần thay thế / sửa chữa
+        </h1>
+      </div>
+
+      <div className="repair-process-stepper">
+        {processLabels.map((label, index) => {
+          const stepCompleted = index < processStage || (isFlowCompleted && index === processStage);
+          const stepActive = index === processStage && !isFlowCompleted;
+          return (
+          <div key={label} className="repair-process-step">
+            <div className="step-content" style={{ display: 'flex', alignItems: 'center', gap: 5, color: stepCompleted ? '#2E7D32' : stepActive ? '#E65100' : '#94A3B8', fontWeight: stepCompleted || stepActive ? 800 : 600 }}>
+              <span className="step-circle" style={{ width: 20, height: 20, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: stepCompleted ? '#2E7D32' : stepActive ? '#E65100' : '#F1F5F9', color: stepCompleted || stepActive ? '#fff' : '#94A3B8', fontSize: 10, flexShrink: 0 }}>
+                {stepCompleted ? <Check size={12} /> : index + 1}
+              </span>
+              <span className="step-label-full">{label}</span>
+              <span className="step-label-short">{shortProcessLabels[index]}</span>
+            </div>
+            {index < processLabels.length - 1 && <ChevronDown size={13} className="step-arrow" style={{ margin: '0 8px', transform: 'rotate(-90deg)', color: index < processStage ? '#2E7D32' : '#CBD5E1', flexShrink: 0 }} />}
+          </div>
+          );
+        })}
+      </div>
+
+      {/* Thông tin xe và bảng kê bên trái; danh sách đã chọn bên phải */}
+      <div className="suachua-main-split">
+      {/* Card Thông tin phiếu xe */}
+      <div className="suachua-reception-info" style={{
+        background: '#FFFFFF',
+        borderRadius: 6,
+        border: '1px solid #E0E0E0',
+        padding: 'clamp(6px, 1vh, 10px) clamp(8px, 1vw, 14px)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 'clamp(4px, 0.6vh, 8px)',
+        flexShrink: 0,
+        boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+      }}>
+        {/* Hai cột thông tin; ngày tiếp nhận và ghi chú ở hàng cuối */}
+        <div className="suachua-reception-grid" style={{ alignItems: 'center', gap: 8 }}>
+          {/* 1. Biển số xe */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <label style={{ width: 95, minWidth: 95, flexShrink: 0, color: '#334155', fontWeight: 500, whiteSpace: 'nowrap' }}>
+              Biển số xe
+            </label>
+            <div style={{ display: 'flex', flex: 1, minWidth: 0, gap: 6 }}>
+              <VehicleSelect vehicles={vehicleOptions} value={vehicleInfo.vehicleId} onChange={selectVehicle} />
+              <button type="button" onClick={openAddVehicle} style={{ height: 'clamp(28px, 3.2vh, 31px)', padding: '0 11px', border: 0, borderRadius: 4, background: '#E65100', color: '#fff', fontSize: 'inherit', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>＋ Thêm</button>
+            </div>
+          </div>
+
+          {/* 8. Số phiếu */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <label style={{ width: 95, minWidth: 95, flexShrink: 0, color: '#334155', fontWeight: 500, whiteSpace: 'nowrap' }}>
+              Số phiếu
+            </label>
+            {vehicleFlowOptions.length > 1 ? (
+              <select
+                value={repairFlow.workflowId || ''}
+                onChange={(event) => handleSelectRepairFlow(event.target.value)}
+                style={{
+                  flex: 1, minWidth: 0,
+                  height: 'clamp(28px, 3.2vh, 31px)',
+                  padding: '0 8px',
+                  border: '1px solid #CBD5E1',
+                  borderRadius: 4,
+                  fontSize: 'inherit',
+                  background: '#FFFFFF',
+                  color: '#334155',
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                  cursor: 'pointer',
+                }}
+              >
+                {!repairFlow.workflowId && <option value="">Phiếu mới</option>}
+                {vehicleFlowOptions.map((flow) => (
+                  <option key={flow.ID} value={flow.ID}>
+                    {flow.SOPHIEU || flow.SOPHIEUTIEPNHAN || 'Chưa có số phiếu'} - {processLabels[Number(flow.TRANGTHAI)] || flow.TRANGTHAI_TEN}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                type="text"
+                value={vehicleInfo.receiptCode || (!repairFlow.repairId ? draftNumber.code : '')}
+                placeholder={draftNumber.error?'Không tải được số phiếu':'Đang tải số phiếu…'}
+                title={repairFlow.repairId?'Số phiếu đã lưu':'Số lệnh dự kiến; cấp chính thức khi lưu.'}
+                readOnly
+                style={{
+                  flex: 1, minWidth: 0,
+                  height: 'clamp(28px, 3.2vh, 31px)',
+                  padding: '0 8px',
+                  border: '1px solid #CBD5E1',
+                  borderRadius: 4,
+                  fontSize: 'inherit',
+                  background: '#F8FAFC',
+                  color: '#64748B',
+                  outline: 'none',
+                  boxSizing: 'border-box'
+                }}
+              />
+            )}
+          </div>
+
+          {/* 5. NV tiếp nhận */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <label style={{ width: 95, minWidth: 95, flexShrink: 0, color: '#334155', fontWeight: 500, whiteSpace: 'nowrap' }}>
+              NV tiếp nhận
+            </label>
+            <div style={{ display: 'flex', flex: 1, minWidth: 0, gap: 6 }}>
+              <select
+                value={vehicleInfo.staff}
+                onChange={(e) => setVehicleInfo({ ...vehicleInfo, staff: e.target.value })}
+                style={{
+                  flex: 1, minWidth: 0,
+                  height: 'clamp(28px, 3.2vh, 31px)',
+                  padding: '0 8px',
+                  border: '1px solid #CBD5E1',
+                  borderRadius: 4,
+                  fontSize: 'inherit',
+                  outline: 'none',
+                  background: '#FFFFFF',
+                  cursor: 'pointer',
+                  boxSizing: 'border-box'
+                }}
+              >
+                <option value="">-- Chọn nhân viên --</option>
+                {employeeOptions.map((employee) => <option key={employee.ID} value={employee.ID}>{employee.NAME}</option>)}
+              </select>
+              <button type="button" onClick={openAddEmployee} style={{ height: 'clamp(28px, 3.2vh, 31px)', padding: '0 11px', border: 0, borderRadius: 4, background: '#E65100', color: '#fff', fontSize: 'inherit', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>＋ Thêm</button>
+            </div>
+          </div>
+
+          {/* 4. Khách hàng */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <label style={{ width: 95, minWidth: 95, flexShrink: 0, color: '#334155', fontWeight: 500, whiteSpace: 'nowrap' }}>
+              Khách hàng
+            </label>
+            <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
+              <input
+                type="text"
+                value={vehicleInfo.customer}
+                readOnly
+                style={{
+                  width: '100%',
+                  height: 'clamp(28px, 3.2vh, 31px)',
+                  padding: '0 26px 0 8px',
+                  border: '1px solid #CBD5E1',
+                  borderRadius: 4,
+                  fontSize: 'inherit',
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                  background: '#F8FAFC'
+                }}
+              />
+              <Search
+                size={13}
+                color="#64748B"
+                style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}
+              />
+            </div>
+          </div>
+
+          {/* 2. Ngày tiếp nhận */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <label style={{ width: 95, minWidth: 95, flexShrink: 0, color: '#334155', fontWeight: 500, whiteSpace: 'nowrap' }}>
+              Ngày tiếp nhận
+            </label>
+            <input
+              type="date"
+              value={vehicleInfo.date}
+              onChange={(e) => setVehicleInfo({ ...vehicleInfo, date: e.target.value })}
+              style={{
+                flex: 1, minWidth: 0,
+                height: 'clamp(28px, 3.2vh, 31px)',
+                padding: '0 8px',
+                border: '1px solid #CBD5E1',
+                borderRadius: 4,
+                fontSize: 'inherit',
+                outline: 'none',
+                background: '#FFFFFF',
+                boxSizing: 'border-box'
+              }}
+            />
+          </div>
+
+          {/* 9. Ghi chú */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <label style={{ width: 95, minWidth: 95, flexShrink: 0, color: '#334155', fontWeight: 500, whiteSpace: 'nowrap' }}>
+              Ghi chú
+            </label>
+            <input
+              type="text"
+              value={vehicleInfo.note}
+              onChange={(e) => setVehicleInfo({ ...vehicleInfo, note: e.target.value })}
+              style={{
+                flex: 1, minWidth: 0,
+                height: 'clamp(28px, 3.2vh, 31px)',
+                padding: '0 8px',
+                border: '1px solid #CBD5E1',
+                borderRadius: 4,
+                fontSize: 'inherit',
+                outline: 'none',
+                background: '#FFFFFF',
+                boxSizing: 'border-box'
+              }}
+            />
+          </div>
+        </div>
+      </div>
+
+        {/* CỘT TRÁI (~71%): Toolbar + Bảng danh sách dịch vụ */}
+        <div className="suachua-left-col" style={{
+          flex: '1 1 71%',
+          minWidth: 0,
+          background: '#FFFFFF',
+          borderRadius: 6,
+          border: '1px solid #E0E0E0',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+        }}>
+          {/* Toolbar tìm kiếm & các nút thao tác nhanh */}
+          <div style={{
+            padding: 'clamp(4px, 0.7vh, 8px) 10px',
+            borderBottom: '1px solid #E0E0E0',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 8,
+            flexShrink: 0,
+            background: '#FAFAFA'
+          }}>
+            {/* Ô tìm kiếm */}
+            <div style={{ position: 'relative', width: 'clamp(180px, 20vw, 280px)' }}>
+              <input
+                type="text"
+                placeholder="Tìm dịch vụ, phụ tùng..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                style={{
+                  width: '100%',
+                  height: 'clamp(24px, 3vh, 28px)',
+                  padding: '0 24px 0 8px',
+                  border: '1px solid #CBD5E1',
+                  borderRadius: 4,
+                  fontSize: 'inherit',
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                  background: '#FFFFFF'
+                }}
+              />
+              <Search
+                size={13}
+                color="#64748B"
+                style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}
+              />
+            </div>
+
+            {/* Cụm 3 nút: Chọn tất cả, Bỏ chọn tất cả, Làm mới */}
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              {isServiceSelectionLocked && (
+                <span style={{ color: '#64748B', fontSize: '10.5px', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                  Phiếu đã lưu • hạng mục đã khóa
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={handleSelectAll}
+                disabled={isServiceSelectionLocked}
+                title={isServiceSelectionLocked ? 'Không thể thay đổi hạng mục trên phiếu đã lưu' : 'Chọn tất cả'}
+                style={{
+                  height: 'clamp(24px, 3vh, 28px)',
+                  padding: '0 12px',
+                  background: '#E65100',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  borderRadius: 4,
+                  fontSize: 'inherit',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  cursor: isServiceSelectionLocked ? 'not-allowed' : 'pointer',
+                  opacity: isServiceSelectionLocked ? 0.45 : 1,
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                <Check size={14} strokeWidth={2.5} />
+                Chọn tất cả
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDeselectAll}
+                disabled={isServiceSelectionLocked}
+                title={isServiceSelectionLocked ? 'Không thể thay đổi hạng mục trên phiếu đã lưu' : 'Bỏ chọn tất cả'}
+                style={{
+                  height: 'clamp(24px, 3vh, 28px)',
+                  padding: '0 10px',
+                  background: '#FFFFFF',
+                  color: '#E65100',
+                  border: '1px solid #E65100',
+                  borderRadius: 4,
+                  fontSize: 'inherit',
+                  fontWeight: 500,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  cursor: isServiceSelectionLocked ? 'not-allowed' : 'pointer',
+                  opacity: isServiceSelectionLocked ? 0.45 : 1,
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                <XCircle size={14} />
+                Bỏ chọn tất cả
+              </button>
+            </div>
+          </div>
+
+          {/* Bảng kê chi tiết 14 dịch vụ */}
+          <div className="table-responsive" style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+            <table style={{ width: '100%', minWidth: 620, borderCollapse: 'collapse', fontSize: 'inherit' }}>
+              <thead style={{ position: 'sticky', top: 0, zIndex: 2 }}>
+                <tr style={{ background: '#FFE0B2', color: '#BF360C', fontWeight: 700 }}>
+                  <th style={{ padding: '6px 4px', textAlign: 'center', width: 32, borderBottom: '1px solid #FFCC80' }}>
+                    <input
+                      type="checkbox"
+                      checked={services.length > 0 && services.every(s => s.checked)}
+                      disabled={isServiceSelectionLocked}
+                      onChange={(e) => {
+                        if (isServiceSelectionLocked) return;
+                        const checked = e.target.checked;
+                        setServices(prev => prev.map(s => ({ ...s, checked })));
+                      }}
+                      title={isServiceSelectionLocked ? 'Danh sách đã khóa trên phiếu đã lưu' : ''}
+                      style={{ cursor: isServiceSelectionLocked ? 'not-allowed' : 'pointer', accentColor: '#E65100', width: 15, height: 15 }}
+                    />
+                  </th>
+                  <th style={{ padding: '6px 4px', textAlign: 'center', width: 38, borderBottom: '1px solid #FFCC80' }}>STT</th>
+                  <th style={{ padding: '6px 8px', textAlign: 'left', width: 125, borderBottom: '1px solid #FFCC80' }}>Nhóm</th>
+                  <th style={{ padding: '6px 8px', textAlign: 'left', borderBottom: '1px solid #FFCC80' }}>Dịch vụ / Hạng mục</th>
+                  <th style={{ padding: '6px 6px', textAlign: 'center', width: 55, borderBottom: '1px solid #FFCC80' }}>Đơn vị</th>
+                  <th style={{ padding: '6px 8px', textAlign: 'right', width: 105, borderBottom: '1px solid #FFCC80' }}>Đơn giá (VNĐ)</th>
+                  <th style={{ padding: '6px 8px', textAlign: 'left', width: 170, borderBottom: '1px solid #FFCC80' }}>Ghi chú</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredServices.map((row, idx) => (
+                  <tr
+                    key={row.id}
+                    onClick={() => handleToggle(row.id)}
+                    style={{
+                      background: row.checked ? '#FFF8E1' : (idx % 2 === 0 ? '#FFFFFF' : '#FAFAFA'),
+                      borderBottom: '1px solid #F1F5F9',
+                      cursor: isServiceSelectionLocked ? 'default' : 'pointer',
+                      transition: 'background 0.12s'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!row.checked) e.currentTarget.style.background = '#F8FAFC';
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!row.checked) e.currentTarget.style.background = idx % 2 === 0 ? '#FFFFFF' : '#FAFAFA';
+                    }}
+                  >
+                    {/* Checkbox */}
+                    <td style={{ padding: '4px 4px', textAlign: 'center' }}>
+                      <input
+                        type="checkbox"
+                        checked={row.checked}
+                        disabled={isServiceSelectionLocked}
+                        onChange={() => {}} // handled by row click
+                        title={isServiceSelectionLocked ? 'Hạng mục đã khóa trên phiếu đã lưu' : ''}
+                        style={{ cursor: isServiceSelectionLocked ? 'not-allowed' : 'pointer', pointerEvents: 'none', accentColor: '#E65100', width: 15, height: 15 }}
+                      />
+                    </td>
+
+                    {/* STT */}
+                    <td style={{ padding: '4px 4px', textAlign: 'center', color: '#64748B' }}>
+                      {idx + 1}
+                    </td>
+
+                    {/* Nhóm dịch vụ (Badge) */}
+                    <td style={{ padding: '4px 8px' }}>
+                      <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 5,
+                        background: row.groupBg,
+                        color: row.groupColor,
+                        padding: '2px 8px',
+                        borderRadius: 4,
+                        fontWeight: 600,
+                        fontSize: '10.5px'
+                      }}>
+                        {renderGroupIcon(row.iconType, row.groupColor)}
+                        {row.group}
+                      </span>
+                    </td>
+
+                    {/* Dịch vụ / Hạng mục */}
+                    <td style={{ padding: '4px 8px', fontWeight: 600, color: '#1E293B' }}>
+                      {row.name}
+                    </td>
+
+                    {/* Đơn vị */}
+                    <td style={{ padding: '4px 6px', textAlign: 'center', color: '#475569' }}>
+                      {row.unit}
+                    </td>
+
+                    {/* Đơn giá */}
+                    <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 600, color: '#1E293B' }}>
+                      {formatNumber(row.price)}
+                    </td>
+
+                    {/* Ghi chú */}
+                    <td style={{ padding: '4px 8px', color: '#64748B', fontSize: '10.5px' }} onClick={(event) => event.stopPropagation()}>
+                      <input
+                        type="text"
+                        aria-label={`Ghi chú ${row.name}`}
+                        value={isServiceSelectionLocked
+                          ? selectedServices.find(item => item.sourceId === row.sourceId && item.sourceType === row.sourceType)?.note || ''
+                          : row.note}
+                        readOnly={isServiceSelectionLocked}
+                        onChange={(event) => setServices(current => current.map(item => item.id === row.id ? { ...item, note: event.target.value } : item))}
+                        style={{ width: '100%', minWidth: 0, padding: '4px 6px', border: '1px solid #CBD5E1', borderRadius: 4, fontSize: 'inherit', color: 'inherit', background: 'transparent' }}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Footer hiển thị số bản ghi */}
+          <div style={{
+            padding: '4px 10px',
+            borderTop: '1px solid #E0E0E0',
+            background: '#F8FAFC',
+            fontSize: '11px',
+            color: '#64748B',
+            fontWeight: 500,
+            flexShrink: 0
+          }}>
+            Hiển thị 1 - {filteredServices.length} / {services.length} bản ghi
+          </div>
+        </div>
+
+        {/* CỘT PHẢI (~29%): Danh sách đã chọn + Ghi chú sửa chữa + Cụm nút hành động */}
+        <div className="suachua-right-col" style={{
+          flex: '0 0 29%',
+          minWidth: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 'clamp(5px, 0.8vh, 8px)',
+          overflowX: 'hidden',
+          overflowY: 'auto'
+        }}>
+          {/* Card: Danh sách đã chọn */}
+          <div style={{
+            flex: '1 1 0',
+            minHeight: 0,
+            background: '#FFFFFF',
+            borderRadius: 6,
+            border: '1px solid #E0E0E0',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+          }}>
+            {/* Header: Danh sách đã chọn */}
+            <div style={{
+              padding: 'clamp(4px, 0.6vh, 6px) 10px',
+              borderBottom: '1px solid #E0E0E0',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              background: '#FAFAFA',
+              flexShrink: 0
+            }}>
+              <div style={{
+                width: 18,
+                height: 18,
+                borderRadius: 3,
+                background: '#E65100',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#fff'
+              }}>
+                <CheckSquare size={12} />
+              </div>
+              <span style={{ fontWeight: 700, color: '#1E293B', fontSize: 'clamp(11.5px, 0.85vw, 13px)' }}>
+                Danh sách đã chọn
+              </span>
+              {repairFlow.repairId && Number(repairFlow.workflowState) >= 2 && <>
+                <button type="button" onClick={() => setShowRepairConfirmation(true)} style={{ marginLeft: 'auto', border: '1px solid #FDBA74', borderRadius: 4, background: '#FFF7ED', color: '#9A3412', padding: '4px 8px', cursor: 'pointer', fontSize: 11 }}>Phân công / HH</button>
+                <button type="button" onClick={() => setShowSupplements(true)} style={{ border: '1px solid #FDBA74', borderRadius: 4, background: '#FFF7ED', color: '#9A3412', padding: '4px 8px', cursor: 'pointer', fontSize: 11 }}>Phát sinh</button>
+              </>}
+            </div>
+
+            {/* Bảng các mục đã chọn */}
+            <div style={{ flex: 1, minHeight: 56, overflowY: 'auto' }}>
+              <table className="suachua-selected-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10.5px' }}>
+                <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
+                  <tr style={{ background: '#F8FAFC', color: '#475569', fontWeight: 600, borderBottom: '1px solid #E2E8F0' }}>
+                    <th style={{ padding: '4px', textAlign: 'center', width: 28 }}>STT</th>
+                    <th style={{ padding: '4px 6px', textAlign: 'left' }}>Dịch vụ / Hạng mục</th>
+                    <th style={{ padding: '4px 6px', textAlign: 'right', width: 68 }}>Đơn giá</th>
+                    <th style={{ padding: 4, textAlign: 'right', width: 56 }}>Giảm %</th>
+                    {showRepairTax && <th style={{padding:4,textAlign:"right",width:60}}>Thuế</th>}
+                    <th style={{ padding: '4px 6px', textAlign: 'right', width: 72 }}>Thành tiền</th>
+                    <th scope="col" style={{ padding: 4, width: 32, textAlign: 'center' }}>Xóa</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedServices.map((it, idx) => (
+                    <tr key={it.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                      <td style={{ padding: '4px', textAlign: 'center', color: '#64748B' }}>{idx + 1}</td>
+                      <td style={{ padding: '4px 6px', fontWeight: 500, color: '#1E293B' }}>{it.name}</td>
+                      <td style={{ padding: '4px 6px', textAlign: 'right', color: '#475569' }}>
+                        <EditableSalePrice value={it.price} name={it.name}
+                          disabled={savingProcess || !!repairFlow.repairId || !canEditPolicy}
+                          onChange={price => setServices(current => current.map(row => row.id === it.id ? { ...row, price } : row))} />
+                      </td>
+                      <td style={{ padding: 4, textAlign: 'right' }} title="Giảm giá riêng cho hạng mục, trừ trước giảm giá toàn phiếu">
+                        <input type="number" min="0" max="100" step="0.01" inputMode="decimal"
+                          onFocus={event => event.currentTarget.select()}
+                          className="suachua-line-discount" aria-label={`Giảm giá ${it.name} (%)`}
+                          value={repairFlow.repairId ? it.TILECHIETKHAU ?? 0 : it.TILEGIAMGIA ?? ''} placeholder="0"
+                          disabled={savingProcess || !!repairFlow.repairId || !canEditPolicy}
+                          onChange={event => {
+                            const value = event.target.value;
+                            if (value !== '' && (!Number.isFinite(Number(value)) || Number(value) < 0 || Number(value) > 100)) return;
+                            setServices(current => current.map(row => row.id === it.id ? { ...row, TILEGIAMGIA: value === '' ? null : value } : row));
+                          }} />
+                      </td>
+                      {showRepairTax && <td style={{padding:4,textAlign:'right'}}>
+                        <LineTaxField name={it.name} value={repairFlow.repairId ? null : it.TILETHUE}
+                          policy={repairFlow.repairId ? {taxRate:it.TILETHUE ?? chargeRates.taxRate,taxSource:it.NGUONTHUE || 'Theo cấu hình'} : pricedServices[idx]}
+                          disabled={!!repairFlow.repairId || !canEditPolicy} onChange={value => setServices(current => current.map(row => row.id === it.id ? {...row,TILETHUE:value} : row))} />
+                      </td>}
+                      <td style={{ padding: '4px 6px', textAlign: 'right', fontWeight: 600, color: '#1E293B' }}>{formatNumber(repairFlow.repairId
+                        ? Number(it.amount) - Number(it.TIENCHIETKHAU || 0)
+                        : chargeTotals.details[idx]?.lineNet ?? it.price * (it.quantity || 1))}</td>
+                      <td style={{ padding: 4, textAlign: 'center' }}>
+                        <button type="button" className="suachua-remove-item"
+                          aria-label={`Xóa ${it.name} khỏi danh sách đã chọn`}
+                          title={isServiceSelectionLocked ? 'Hạng mục đã khóa trên phiếu đã lưu' : `Xóa ${it.name}`}
+                          disabled={savingProcess || isServiceSelectionLocked}
+                          onClick={() => {
+                            if (savingProcess || isServiceSelectionLocked) return;
+                            setServices(current => current.map(row => row.id === it.id ? { ...row, checked: false } : row));
+                          }}>
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {selectedServices.length === 0 && (
+                    <tr>
+                      <td colSpan={showRepairTax ? 7 : 6} style={{ padding: '20px', textAlign: 'center', color: '#94A3B8' }}>
+                        Chưa chọn dịch vụ nào
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Dòng Tổng cộng */}
+            {chargeSummary}
+            <div style={{
+              padding: '6px 12px',
+              borderTop: '1px solid #FFE0B2',
+              background: '#FFF3E0',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexShrink: 0
+            }}>
+              <span style={{ fontWeight: 700, color: '#BF360C', fontSize: '11.5px' }}>Tổng cộng</span>
+              <span style={{ fontSize: 'clamp(13px, 1vw, 15px)', fontWeight: 800, color: '#E65100' }}>
+                {formatMoney(totalAmount)}
+              </span>
+            </div>
+          </div>
+
+          {/* Card: Ghi chú khi sửa chữa */}
+          <div style={{
+            flex: '0 0 auto',
+            background: '#FFFFFF',
+            borderRadius: 6,
+            border: '1px solid #E0E0E0',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+          }}>
+            {/* Header: Ghi chú khi sửa chữa */}
+            <div style={{
+              padding: 'clamp(4px, 0.6vh, 6px) 10px',
+              borderBottom: '1px solid #E0E0E0',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              background: '#FAFAFA'
+            }}>
+              <div style={{
+                width: 18,
+                height: 18,
+                borderRadius: 3,
+                background: '#E65100',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#fff'
+              }}>
+                <FileText size={12} />
+              </div>
+              <span style={{ fontWeight: 700, color: '#1E293B', fontSize: 'clamp(11.5px, 0.85vw, 13px)' }}>
+                Ghi chú khi sửa chữa
+              </span>
+            </div>
+
+            <div style={{ padding: '6px 8px', display: 'flex', flexDirection: 'column' }}>
+              <textarea
+                value={repairNotes}
+                onChange={(e) => setRepairNotes(e.target.value)}
+                maxLength={500}
+                rows={2}
+                style={{
+                  width: '100%',
+                  border: '1px solid #CBD5E1',
+                  borderRadius: 4,
+                  padding: '6px',
+                  fontSize: '11px',
+                  color: '#334155',
+                  resize: 'none',
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                  lineHeight: '1.4'
+                }}
+              />
+              <div style={{ textAlign: 'right', fontSize: '10px', color: '#94A3B8', marginTop: 2 }}>
+                {repairNotes.length}/500
+              </div>
+            </div>
+          </div>
+
+          {/* Cụm cố định ở cuối trang trên mobile: Ảnh theo trạng thái + Nút hành động */}
+          <div className="suachua-bottom-action-panel">
+            {/* Ảnh được lưu riêng theo từng trạng thái của lượt sửa chữa */}
+            <div className="workflow-card" style={{ flex: '0 0 auto', background: '#fff', borderRadius: 6, border: '1px solid #E0E0E0', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+            <div style={{ padding: '5px 8px', borderBottom: '1px solid #E2E8F0', background: '#FAFAFA', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontWeight: 700, color: '#1E293B', fontSize: 11.5 }}>
+                <Images size={14} color="#E65100" /> Ảnh theo trạng thái
+              </span>
+              <button type="button" disabled={uploadingImages} onClick={() => workflowImageInputRef.current?.click()} style={{ height: 24, padding: '0 8px', border: 0, borderRadius: 4, background: '#E65100', color: '#fff', fontSize: 10.5, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4, cursor: uploadingImages ? 'wait' : 'pointer', opacity: uploadingImages ? 0.65 : 1 }}>
+                <ImagePlus size={12} /> {uploadingImages ? 'Đang lưu...' : 'Thêm ảnh'}
+              </button>
+              <input ref={workflowImageInputRef} type="file" accept="image/jpeg,image/png,image/webp" multiple hidden onChange={handleWorkflowImageFiles} />
+            </div>
+
+            <div style={{ padding: '5px 7px' }}>
+              <div style={{ display: 'flex', gap: 3, overflowX: 'auto', paddingBottom: 4 }}>
+                {processLabels.map((label, state) => {
+                  const reached = state <= businessStage;
+                  if (!reached) return null;
+                  const count = repairFlow.workflowId
+                    ? workflowImages.filter((image) => Number(image.TRANGTHAI) === state).length
+                    : state === 0 ? draftWorkflowImages.length : 0;
+                  const selected = selectedImageState === state;
+                  return (
+                    <button key={label} type="button" onClick={() => setSelectedImageState(state)} style={{ flex: '0 0 auto', height: 23, padding: '0 7px', border: `1px solid ${selected ? '#E65100' : '#CBD5E1'}`, borderRadius: 12, background: selected ? '#FFF3E0' : '#fff', color: selected ? '#C2410C' : '#64748B', fontSize: 9.5, fontWeight: selected ? 700 : 600, cursor: 'pointer' }}>
+                      {shortProcessLabels[state]} ({count})
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="workflow-images-scroll" style={{ minHeight: 48, maxHeight: 100, overflowY: 'auto', display: 'flex', gap: 6, alignItems: 'center' }}>
+                {visibleWorkflowImages.length === 0 ? (
+                  <button type="button" onClick={() => workflowImageInputRef.current?.click()} style={{ width: '100%', height: 45, border: '1px dashed #CBD5E1', borderRadius: 5, background: '#F8FAFC', color: '#94A3B8', fontSize: 10.5, cursor: 'pointer' }}>
+                    Chưa có ảnh ở bước {processLabels[selectedImageState]} · Bấm để thêm nhiều ảnh
+                  </button>
+                ) : visibleWorkflowImages.map((image, index) => {
+                  const source = image.ID ? workflow.imageUrl(image.ID) : image.data;
+                  return (
+                    <div key={image.ID || `${image.name}-${index}`} style={{ position: 'relative', flex: '0 0 54px', width: 54, height: 48, borderRadius: 5, overflow: 'hidden', border: '1px solid #CBD5E1', background: '#F1F5F9' }}>
+                      <img src={source} alt={image.TENFILE || image.name || 'Ảnh trạng thái'} onClick={() => setPreviewImage(source)} style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'zoom-in' }} />
+                      <button type="button" title="Xóa ảnh" onClick={() => image.ID ? handleDeleteWorkflowImage(image) : setDraftWorkflowImages((current) => current.filter((_, itemIndex) => itemIndex !== index))} style={{ position: 'absolute', top: 2, right: 2, width: 17, height: 17, padding: 0, border: 0, borderRadius: '50%', background: 'rgba(185,28,28,.88)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                        <Trash2 size={10} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Cụm 3 nút hành động: 1 hàng duy nhất (Nửa trái: In phiếu + Lưu tạm, Nửa phải: Lưu Tiếp nhận & Báo giá) */}
+          {draftSavedAt && !repairFlow.repairId && (
+            <div role="status" style={{ padding: '6px 8px', background: '#FFF3E0', color: '#9A3412', fontSize: 12, borderRadius: 5 }}>
+              Bản nháp đã lưu lúc {new Date(draftSavedAt).toLocaleString('vi-VN')} trên trình duyệt này.
+            </div>
+          )}
+          <div className="suachua-action-buttons-row" style={{ display: 'flex', alignItems: 'stretch', gap: 6, width: '100%', flexShrink: 0 }}>
+            {/* Nửa bên trái (50%): chỉ in khi đã có phiếu lưu chính thức */}
+            <div style={{ display: 'flex', flex: '1 1 50%', minWidth: 0, gap: 5 }}>
+              {repairFlow.repairId && <button
+                type="button"
+                disabled={savingProcess || !can('REPAIR',17)}
+                onClick={() => {
+                  handlePrintRepairDocument();
+                }}
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  height: 'clamp(32px, 4vh, 38px)',
+                  background: '#FFFFFF',
+                  color: '#E65100',
+                  border: '1px solid #CBD5E1',
+                  borderRadius: 5,
+                  fontWeight: 600,
+                  fontSize: 'clamp(10.5px, 0.8vw, 12px)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 4,
+                  cursor: 'pointer',
+                  padding: '0 4px',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                <Printer size={13} color="#E65100" style={{ flexShrink: 0 }} />
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace:'normal' }}>{Number(repairFlow.workflowState) >= 4 ? 'In hóa đơn' : Number(repairFlow.workflowState) < 2 ? 'In báo giá' : Number(repairFlow.workflowState) === 2 ? 'In lệnh sửa chữa thực tế' : 'In phiếu'}</span>
+              </button>}
+
+              <button
+                type="button"
+                onClick={handleSaveDraft}
+                disabled={savingProcess || !!repairFlow.repairId}
+                title={repairFlow.repairId ? 'Phiếu đã được lưu chính thức' : 'Lưu bản nháp trên trình duyệt này'}
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  height: 'clamp(32px, 4vh, 38px)',
+                  background: '#FFFFFF',
+                  color: '#E65100',
+                  border: '1px solid #CBD5E1',
+                  borderRadius: 5,
+                  fontWeight: 600,
+                  fontSize: 'clamp(10.5px, 0.8vw, 12px)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 4,
+                  cursor: 'pointer',
+                  padding: '0 4px',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                <Bookmark size={13} color="#E65100" style={{ flexShrink: 0 }} />
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>Lưu tạm</span>
+              </button>
+            </div>
+
+            {/* Nửa bên phải (50%): Nút chuyển trạng thái / Lưu Tiếp nhận & Báo giá */}
+            <button
+              type="button"
+              onClick={isFlowCompleted
+                ? (activeVehicleFlow ? () => handleSelectRepairFlow(activeVehicleFlow.ID) : handleStartNewRepairVisit)
+                : handleProcessAction}
+              disabled={savingProcess}
+              style={{
+                flex: '1 1 50%',
+                minWidth: 0,
+                height: 'clamp(32px, 4vh, 38px)',
+                background: isFlowCompleted ? '#2E7D32' : '#E65100',
+                color: '#FFFFFF',
+                border: 'none',
+                borderRadius: 5,
+                fontWeight: 700,
+                fontSize: 'clamp(11px, 0.85vw, 12.5px)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 5,
+                cursor: savingProcess ? 'wait' : 'pointer',
+                boxShadow: isFlowCompleted ? '0 2px 6px rgba(46,125,50,0.25)' : '0 2px 6px rgba(230,81,0,0.25)',
+                padding: '0 6px',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              {isFlowCompleted ? (activeVehicleFlow ? <RotateCcw size={14} style={{ flexShrink: 0 }} /> : <Plus size={14} style={{ flexShrink: 0 }} />) : <Send size={14} style={{ flexShrink: 0 }} />}
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {savingProcess
+                  ? 'Đang xử lý...'
+                  : !repairFlow.repairId
+                    ? 'Lưu Tiếp nhận & Báo giá'
+                    : repairFlow.workflowState === 0 || repairFlow.workflowState === 1
+                      ? 'Xác nhận sửa chữa'
+                      : repairFlow.workflowState === 2
+                        ? 'Giao xe'
+                        : repairFlow.workflowState === 3
+                          ? 'Thanh toán'
+                          : activeVehicleFlow ? 'Mở phiếu đang xử lý' : 'Tạo lượt sửa chữa mới'}
+              </span>
+            </button>
+          </div>
+          </div> {/* End suachua-bottom-action-panel */}
+        </div>
+      </div>
+
+      <EmployeeFormModal
+        open={showAddEmployee}
+        onClose={() => setShowAddEmployee(false)}
+        notify={showToast}
+        onCreated={(id, rows) => {
+          setEmployeeOptions(rows);
+          setVehicleInfo((current) => ({ ...current, staff: id }));
+        }}
+      />
+
+      {false && showAddEmployee && (
+        <div
+          onMouseDown={(event) => { if (event.target === event.currentTarget && !savingEmployee) setShowAddEmployee(false); }}
+          style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(15,23,42,0.62)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+        >
+          <form
+            onSubmit={handleCreateEmployee}
+            style={{ width: 'min(560px, 96vw)', maxHeight: '92vh', background: '#fff', borderRadius: 8, boxShadow: '0 8px 30px rgba(0,0,0,0.3)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+          >
+            <div style={{ background: '#E65100', color: '#fff', padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 13 }}>
+                <UserPlus size={16} /> + THÊM NHÂN VIÊN MỚI
+              </div>
+              <button type="button" disabled={savingEmployee} onClick={() => setShowAddEmployee(false)} style={{ border: 0, background: 'transparent', color: '#fff', cursor: 'pointer', display: 'flex' }}>
+                <XCircle size={16} />
+              </button>
+            </div>
+
+            <div style={{ padding: 15, overflowY: 'auto' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 10.5, fontWeight: 600, color: '#616161', gridColumn: '1 / -1' }}>
+                  <span>Họ và tên <b style={{ color: '#D32F2F' }}>*</b></span>
+                  <input autoFocus maxLength={200} value={newEmployee.NAME} onChange={(e) => setNewEmployee((current) => ({ ...current, NAME: e.target.value }))} placeholder="Nhập họ và tên..." style={{ height: 29, border: '1px solid #ccc', borderRadius: 4, padding: '0 8px', fontSize: 11, fontWeight: 600, outlineColor: '#E65100' }} />
+                </label>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 10.5, fontWeight: 600, color: '#616161' }}>
+                  Chức vụ
+                  <select value={newEmployee.ROLEKEY} onChange={(e) => {
+                    if (e.target.value === '__ADD__') return openAddEmployeeDropdownOption('role');
+                    const option = employeeRoleOptions.find((item) => item.key === e.target.value);
+                    setNewEmployee((current) => ({ ...current, ROLEKEY: e.target.value, ROLELABEL: option?.label || '', LOAINHANVIEN: e.target.value.startsWith('custom:') ? '0' : e.target.value }));
+                  }} style={{ height: 29, border: '1px solid #ccc', borderRadius: 4, padding: '0 6px', fontSize: 11, background: '#fff' }}>
+                    {employeeRoleOptions.map((option) => <option key={option.key} value={option.key}>{option.label}</option>)}
+                    <option disabled>──────────</option><option value="__ADD__">＋ Thêm chức vụ mới</option>
+                  </select>
+                </label>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 10.5, fontWeight: 600, color: '#616161' }}>
+                  Phòng ban
+                  <select value={newEmployee.DEPARTMENT} onChange={(e) => {
+                    if (e.target.value === '__ADD__') return openAddEmployeeDropdownOption('department');
+                    setNewEmployee((current) => ({ ...current, DEPARTMENT: e.target.value }));
+                  }} style={{ height: 29, border: '1px solid #ccc', borderRadius: 4, padding: '0 6px', fontSize: 11, background: '#fff' }}>
+                    {employeeDepartmentOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+                    <option disabled>──────────</option><option value="__ADD__">＋ Thêm phòng ban mới</option>
+                  </select>
+                </label>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 10.5, fontWeight: 600, color: '#616161' }}>
+                  <span>Số điện thoại <b style={{ color: '#D32F2F' }}>*</b></span>
+                  <input maxLength={30} value={newEmployee.DIENTHOAI} onChange={(e) => setNewEmployee((current) => ({ ...current, DIENTHOAI: e.target.value }))} placeholder="09xx xxx xxx" style={{ height: 29, border: '1px solid #ccc', borderRadius: 4, padding: '0 8px', fontSize: 11 }} />
+                </label>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 10.5, fontWeight: 600, color: '#616161' }}>
+                  Email
+                  <input type="email" maxLength={200} value={newEmployee.EMAIL} onChange={(e) => setNewEmployee((current) => ({ ...current, EMAIL: e.target.value }))} placeholder="email@..." style={{ height: 29, border: '1px solid #ccc', borderRadius: 4, padding: '0 8px', fontSize: 11 }} />
+                </label>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 10.5, fontWeight: 600, color: '#616161', gridColumn: '1 / -1' }}>
+                  Chứng chỉ
+                  <input maxLength={500} value={newEmployee.CERT} onChange={(e) => setNewEmployee((current) => ({ ...current, CERT: e.target.value }))} placeholder="Chứng chỉ kỹ thuật ô tô..." style={{ height: 29, border: '1px solid #ccc', borderRadius: 4, padding: '0 8px', fontSize: 11 }} />
+                </label>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 10.5, fontWeight: 600, color: '#616161', gridColumn: '1 / -1' }}>
+                  Kỹ năng chuyên môn
+                  <input maxLength={1000} value={newEmployee.CHUYENMON} onChange={(e) => setNewEmployee((current) => ({ ...current, CHUYENMON: e.target.value }))} placeholder="Động cơ, gầm hộp số, điện ô tô..." style={{ height: 29, border: '1px solid #ccc', borderRadius: 4, padding: '0 8px', fontSize: 11 }} />
+                </label>
+              </div>
+            </div>
+
+            <div style={{ padding: '9px 14px', borderTop: '1px solid #E2E8F0', background: '#FAFAFA', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button type="button" disabled={savingEmployee} onClick={() => setShowAddEmployee(false)} style={{ height: 30, padding: '0 14px', background: '#fff', border: '1px solid #CBD5E1', borderRadius: 4, color: '#475569', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>Hủy</button>
+              <button type="submit" disabled={savingEmployee} style={{ height: 30, padding: '0 15px', background: savingEmployee ? '#FDBA74' : '#E65100', color: '#fff', border: 0, borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: savingEmployee ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
+                {savingEmployee ? <RotateCcw size={13} /> : <UserPlus size={13} />} {savingEmployee ? 'Đang lưu...' : 'Lưu nhân viên'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {showAddEmployeeOption && (
+        <div onMouseDown={(event) => { if (event.target === event.currentTarget) setShowAddEmployeeOption(false); }} style={{ position: 'fixed', inset: 0, zIndex: 10020, background: 'rgba(0,0,0,0.58)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <form onSubmit={handleAddEmployeeDropdownOption} style={{ width: 'min(420px, 96vw)', background: '#fff', borderRadius: 7, overflow: 'hidden', boxShadow: '0 12px 36px rgba(0,0,0,0.3)' }}>
+            <div style={{ background: '#E65100', color: '#fff', padding: '10px 13px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <b style={{ fontSize: 13 }}>＋ THÊM {employeeOptionType === 'role' ? 'CHỨC VỤ' : 'PHÒNG BAN'} MỚI</b>
+              <button type="button" onClick={() => setShowAddEmployeeOption(false)} style={{ border: 0, background: 'transparent', color: '#fff', cursor: 'pointer', display: 'flex' }}><XCircle size={17} /></button>
+            </div>
+            <div style={{ padding: 14 }}>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 10.5, fontWeight: 600, color: '#424242' }}>
+                Tên {employeeOptionType === 'role' ? 'chức vụ' : 'phòng ban'} <span style={{ color: '#D32F2F' }}>*</span>
+                <input autoFocus value={newEmployeeOptionName} onChange={(e) => setNewEmployeeOptionName(e.target.value)} placeholder={`Nhập tên ${employeeOptionType === 'role' ? 'chức vụ' : 'phòng ban'}...`} style={{ height: 32, padding: '0 8px', border: '1px solid #ccc', borderRadius: 4, fontSize: 11, outlineColor: '#E65100' }} />
+              </label>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 7, marginTop: 13 }}>
+                <button type="button" onClick={() => setShowAddEmployeeOption(false)} style={{ padding: '5px 13px', border: '1px solid #ccc', borderRadius: 4, background: '#fff', color: '#424242', fontSize: 11 }}>Hủy</button>
+                <button type="submit" style={{ padding: '5px 15px', border: 0, borderRadius: 4, background: '#E65100', color: '#fff', fontSize: 11, fontWeight: 700 }}>Thêm mới</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      )}
+
+      <VehicleProfileModal
+        open={showAddVehicle}
+        onClose={() => setShowAddVehicle(false)}
+        notify={showToast}
+        onCreated={async (id, rows) => {
+          setVehicleOptions(rows);
+          await selectVehicle(id, rows);
+        }}
+      />
+
+      {false && showAddVehicle && (
+        <div
+          onMouseDown={(event) => { if (event.target === event.currentTarget && !savingVehicle) setShowAddVehicle(false); }}
+          style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(15,23,42,0.62)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+        >
+          <form
+            onSubmit={handleCreateVehicle}
+            style={{ width: 'min(900px, 97vw)', maxHeight: '92vh', background: '#fff', borderRadius: 9, boxShadow: '0 20px 55px rgba(15,23,42,0.34)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+          >
+            <div style={{ background: '#E65100', color: '#fff', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 800, fontSize: 15 }}>
+                <Car size={19} /> THÊM XE MỚI
+              </div>
+              <button type="button" disabled={savingVehicle} onClick={() => setShowAddVehicle(false)} style={{ border: 0, background: 'transparent', color: '#fff', cursor: 'pointer', display: 'flex' }}>
+                <XCircle size={20} />
+              </button>
+            </div>
+
+            <div style={{ padding: 16, overflowY: 'auto' }}>
+              <div style={{ fontWeight: 800, fontSize: 12, color: '#C2410C', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 5 }}>
+                <FileText size={14} /> Thông tin hồ sơ và chủ xe
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 11, marginBottom: 16 }}>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11, fontWeight: 600, color: '#475569' }}>
+                  Biển số xe <span style={{ color: '#DC2626' }}>*</span>
+                  <input autoFocus maxLength={30} value={newVehicle.BIENSO} onChange={(e) => updateNewVehicle('BIENSO', e.target.value.toUpperCase())} placeholder="Ví dụ: 51A-123.45" style={{ height: 34, border: '1px solid #CBD5E1', borderRadius: 5, padding: '0 10px', fontSize: 12, outlineColor: '#E65100', textTransform: 'uppercase' }} />
+                </label>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11, fontWeight: 600, color: '#475569' }}>
+                  Khách hàng / Chủ xe <span style={{ color: '#DC2626' }}>*</span>
+                  <select value={newVehicle.DKHACHHANGID} onChange={(e) => {
+                    if (e.target.value === '__ADD_CUSTOMER__') return openAddCustomer();
+                    updateNewVehicle('DKHACHHANGID', e.target.value);
+                  }} style={{ height: 34, border: '1px solid #CBD5E1', borderRadius: 5, padding: '0 8px', fontSize: 12, background: '#fff', outlineColor: '#E65100' }}>
+                    <option value="">-- Chọn khách hàng / chủ xe --</option>
+                    {customerOptions.map((customer) => (
+                      <option key={customer.ID} value={customer.ID}>{customer.MAKHACH ? `${customer.MAKHACH} - ` : ''}{customer.NAME}{customer.DIENTHOAI ? ` - ${customer.DIENTHOAI}` : ''}</option>
+                    ))}
+                    <option disabled>────────────────────</option>
+                    <option value="__ADD_CUSTOMER__">＋ Thêm khách hàng mới</option>
+                  </select>
+                </label>
+              </div>
+
+              <div style={{ fontWeight: 800, fontSize: 12, color: '#C2410C', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 5 }}>
+                <Wrench size={14} /> Thông số kỹ thuật
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 11 }}>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11, fontWeight: 600, color: '#475569' }}>
+                  Hãng xe <span style={{ color: '#DC2626' }}>*</span>
+                  <select value={newVehicle.DHANGXEID} onChange={(e) => {
+                    if (e.target.value === '__ADD_BRAND__') return openAddBrand();
+                    updateNewVehicle('DHANGXEID', e.target.value);
+                  }} style={{ height: 34, border: '1px solid #CBD5E1', borderRadius: 5, padding: '0 8px', fontSize: 12, background: '#fff' }}>
+                    <option value="">-- Chọn hãng xe --</option>
+                    {vehicleBrands.map((brand) => <option key={brand.ID} value={brand.ID}>{brand.NAME}</option>)}
+                    <option disabled>────────────────────</option>
+                    <option value="__ADD_BRAND__">＋ Thêm hãng xe mới</option>
+                  </select>
+                </label>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11, fontWeight: 600, color: '#475569' }}>
+                  Dòng xe <span style={{ color: '#DC2626' }}>*</span>
+                  <select value={newVehicle.DDONGXEID} disabled={!newVehicle.DHANGXEID} onChange={(e) => {
+                    if (e.target.value === '__ADD_MODEL__') return openAddModel();
+                    updateNewVehicle('DDONGXEID', e.target.value);
+                  }} style={{ height: 34, border: '1px solid #CBD5E1', borderRadius: 5, padding: '0 8px', fontSize: 12, background: newVehicle.DHANGXEID ? '#fff' : '#F8FAFC' }}>
+                    <option value="">-- Chọn dòng xe --</option>
+                    {vehicleModels.filter((model) => model.DHANGXEID === newVehicle.DHANGXEID).map((model) => <option key={model.ID} value={model.ID}>{model.NAME}</option>)}
+                    <option disabled>────────────────────</option>
+                    <option value="__ADD_MODEL__">＋ Thêm dòng xe mới cho hãng này</option>
+                  </select>
+                </label>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11, fontWeight: 600, color: '#475569' }}>
+                  Phiên bản
+                  <input maxLength={100} value={newVehicle.PHIENBAN} onChange={(e) => updateNewVehicle('PHIENBAN', e.target.value)} placeholder="Ví dụ: 2.4G (AT)" style={{ height: 34, border: '1px solid #CBD5E1', borderRadius: 5, padding: '0 10px', fontSize: 12 }} />
+                </label>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11, fontWeight: 600, color: '#475569' }}>
+                  Năm sản xuất
+                  <input type="number" min="1900" max="2100" value={newVehicle.NAMSANXUAT} onChange={(e) => updateNewVehicle('NAMSANXUAT', e.target.value)} placeholder="2026" style={{ height: 34, border: '1px solid #CBD5E1', borderRadius: 5, padding: '0 10px', fontSize: 12 }} />
+                </label>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11, fontWeight: 600, color: '#475569' }}>
+                  Màu xe
+                  <input maxLength={50} value={newVehicle.MAUXE} onChange={(e) => updateNewVehicle('MAUXE', e.target.value)} placeholder="Trắng, đen, bạc..." style={{ height: 34, border: '1px solid #CBD5E1', borderRadius: 5, padding: '0 10px', fontSize: 12 }} />
+                </label>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11, fontWeight: 600, color: '#475569' }}>
+                  Số khung (VIN)
+                  <input maxLength={100} value={newVehicle.SOKHUNG} onChange={(e) => updateNewVehicle('SOKHUNG', e.target.value.toUpperCase())} placeholder="Nhập số khung" style={{ height: 34, border: '1px solid #CBD5E1', borderRadius: 5, padding: '0 10px', fontSize: 12, textTransform: 'uppercase' }} />
+                </label>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11, fontWeight: 600, color: '#475569' }}>
+                  Số máy
+                  <input maxLength={100} value={newVehicle.SOMAY} onChange={(e) => updateNewVehicle('SOMAY', e.target.value.toUpperCase())} placeholder="Nhập số máy" style={{ height: 34, border: '1px solid #CBD5E1', borderRadius: 5, padding: '0 10px', fontSize: 12, textTransform: 'uppercase' }} />
+                </label>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11, fontWeight: 600, color: '#475569' }}>
+                  ODO hiện tại (km)
+                  <input type="number" min="0" step="1" value={newVehicle.ODO} onChange={(e) => updateNewVehicle('ODO', e.target.value)} style={{ height: 34, border: '1px solid #CBD5E1', borderRadius: 5, padding: '0 10px', fontSize: 12 }} />
+                </label>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11, fontWeight: 600, color: '#475569' }}>
+                  Nhiên liệu
+                  <select value={newVehicle.NHIENLIEU} onChange={(e) => updateNewVehicle('NHIENLIEU', e.target.value)} style={{ height: 34, border: '1px solid #CBD5E1', borderRadius: 5, padding: '0 8px', fontSize: 12, background: '#fff' }}>
+                    <option value="">-- Chọn nhiên liệu --</option>
+                    <option value="Xăng">Xăng</option><option value="Dầu">Dầu</option><option value="Điện">Điện</option><option value="Hybrid">Hybrid</option><option value="LPG">LPG</option><option value="Khác">Khác</option>
+                  </select>
+                </label>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11, fontWeight: 600, color: '#475569' }}>
+                  Mức nhiên liệu (%)
+                  <div style={{ height: 34, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input type="range" min="0" max="100" step="5" value={newVehicle.MUCNHIENLIEU} onChange={(e) => updateNewVehicle('MUCNHIENLIEU', e.target.value)} style={{ flex: 1, accentColor: '#E65100' }} />
+                    <input type="number" min="0" max="100" value={newVehicle.MUCNHIENLIEU} onChange={(e) => updateNewVehicle('MUCNHIENLIEU', e.target.value)} style={{ width: 56, height: 30, border: '1px solid #CBD5E1', borderRadius: 5, padding: '0 6px', fontSize: 12, textAlign: 'right' }} />
+                  </div>
+                </label>
+              </div>
+
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11, fontWeight: 600, color: '#475569', marginTop: 11 }}>
+                Ghi chú hồ sơ xe
+                <textarea rows={3} maxLength={1000} value={newVehicle.GHICHU} onChange={(e) => updateNewVehicle('GHICHU', e.target.value)} placeholder="Nhập tình trạng, đặc điểm nhận diện hoặc lưu ý về xe..." style={{ border: '1px solid #CBD5E1', borderRadius: 5, padding: '8px 10px', fontSize: 12, resize: 'vertical', minHeight: 64, fontFamily: 'inherit' }} />
+              </label>
+            </div>
+
+            <div style={{ padding: '10px 16px', borderTop: '1px solid #E2E8F0', background: '#FAFAFA', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button type="button" disabled={savingVehicle} onClick={() => setShowAddVehicle(false)} style={{ height: 34, padding: '0 16px', background: '#fff', border: '1px solid #CBD5E1', borderRadius: 5, color: '#475569', fontWeight: 600, cursor: 'pointer' }}>Hủy</button>
+              <button type="submit" disabled={savingVehicle} style={{ height: 34, padding: '0 18px', background: savingVehicle ? '#FDBA74' : '#E65100', color: '#fff', border: 0, borderRadius: 5, fontWeight: 700, cursor: savingVehicle ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                {savingVehicle ? <RotateCcw size={14} /> : <Plus size={14} />} {savingVehicle ? 'Đang lưu...' : 'Thêm xe và chọn xe'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {showAddCustomer && <CustomerCreateModal onClose={() => setShowAddCustomer(false)} notify={showToast}
+        onCreated={(id,rows) => {setCustomerOptions(current => [...new Map([...current,...rows].map(row => [row.ID,row])).values()]);updateNewVehicle('DKHACHHANGID',id);}}/>}
+
+      {showAddCustomerGroup && (
+        <div onMouseDown={(event) => { if (event.target === event.currentTarget && !savingCustomerGroup) setShowAddCustomerGroup(false); }} style={{ position: 'fixed', inset: 0, zIndex: 10030, background: 'rgba(0,0,0,0.58)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <form onSubmit={handleCreateCustomerGroup} style={{ width: 'min(420px, 96vw)', background: '#fff', borderRadius: 7, overflow: 'hidden', boxShadow: '0 12px 36px rgba(0,0,0,0.3)' }}>
+            <div style={{ background: '#E65100', color: '#fff', padding: '9px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, fontWeight: 700 }}><Plus size={16} /> THÊM NHÓM KHÁCH HÀNG</div>
+              <button type="button" disabled={savingCustomerGroup} onClick={() => setShowAddCustomerGroup(false)} style={{ border: 0, background: 'transparent', color: '#fff', cursor: 'pointer', display: 'flex' }}><XCircle size={17} /></button>
+            </div>
+            <div style={{ padding: 14 }}>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 10.5, fontWeight: 600, color: '#424242' }}>
+                Tên nhóm khách hàng <span style={{ color: '#D32F2F' }}>*</span>
+                <input autoFocus value={newCustomerGroupName} onChange={(e) => setNewCustomerGroupName(e.target.value)} placeholder="Ví dụ: Khách lẻ, Khách VIP..." style={{ height: 32, padding: '0 8px', border: '1px solid #ccc', borderRadius: 4, fontSize: 11, outlineColor: '#E65100' }} />
+              </label>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 7, marginTop: 13 }}>
+                <button type="button" disabled={savingCustomerGroup} onClick={() => setShowAddCustomerGroup(false)} style={{ padding: '5px 13px', border: '1px solid #ccc', borderRadius: 4, background: '#fff', color: '#424242', fontSize: 11, cursor: 'pointer' }}>Hủy</button>
+                <button type="submit" disabled={savingCustomerGroup} style={{ padding: '5px 15px', border: 0, borderRadius: 4, background: savingCustomerGroup ? '#FDBA74' : '#E65100', color: '#fff', fontSize: 11, fontWeight: 700, cursor: savingCustomerGroup ? 'wait' : 'pointer' }}>{savingCustomerGroup ? 'Đang lưu...' : 'Thêm nhóm'}</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {showAddBrand && (
+        <div onMouseDown={(event) => { if (event.target === event.currentTarget && !savingVehicleMaster) setShowAddBrand(false); }} style={{ position: 'fixed', inset: 0, zIndex: 10020, background: 'rgba(15,23,42,0.66)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <form onSubmit={handleCreateBrand} style={{ width: 'min(440px, 96vw)', background: '#fff', borderRadius: 8, overflow: 'hidden', boxShadow: '0 18px 45px rgba(15,23,42,0.35)' }}>
+            <div style={{ background: '#E65100', color: '#fff', padding: '11px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <b style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 14 }}><Plus size={17} /> THÊM HÃNG XE MỚI</b>
+              <button type="button" disabled={savingVehicleMaster} onClick={() => setShowAddBrand(false)} style={{ border: 0, background: 'transparent', color: '#fff', cursor: 'pointer', display: 'flex' }}><XCircle size={18} /></button>
+            </div>
+            <div style={{ padding: 16 }}>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 5, color: '#475569', fontSize: 11, fontWeight: 600 }}>
+                Tên hãng xe <span style={{ color: '#DC2626' }}>*</span>
+                <input autoFocus maxLength={200} value={newBrandName} onChange={(e) => setNewBrandName(e.target.value)} placeholder="Ví dụ: Toyota, Honda, Ford..." style={{ height: 35, padding: '0 10px', border: '1px solid #CBD5E1', borderRadius: 5, fontSize: 12, outlineColor: '#E65100' }} />
+              </label>
+            </div>
+            <div style={{ padding: '10px 16px', borderTop: '1px solid #E2E8F0', background: '#FAFAFA', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button type="button" disabled={savingVehicleMaster} onClick={() => setShowAddBrand(false)} style={{ height: 32, padding: '0 14px', border: '1px solid #CBD5E1', borderRadius: 5, background: '#fff', color: '#475569', cursor: 'pointer' }}>Hủy</button>
+              <button type="submit" disabled={savingVehicleMaster} style={{ height: 32, padding: '0 16px', border: 0, borderRadius: 5, background: savingVehicleMaster ? '#FDBA74' : '#E65100', color: '#fff', fontWeight: 700, cursor: savingVehicleMaster ? 'wait' : 'pointer' }}>{savingVehicleMaster ? 'Đang lưu...' : 'Thêm hãng xe'}</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {showAddModel && (
+        <div onMouseDown={(event) => { if (event.target === event.currentTarget && !savingVehicleMaster) setShowAddModel(false); }} style={{ position: 'fixed', inset: 0, zIndex: 10020, background: 'rgba(15,23,42,0.66)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <form onSubmit={handleCreateModel} style={{ width: 'min(440px, 96vw)', background: '#fff', borderRadius: 8, overflow: 'hidden', boxShadow: '0 18px 45px rgba(15,23,42,0.35)' }}>
+            <div style={{ background: '#E65100', color: '#fff', padding: '11px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <b style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 14 }}><Plus size={17} /> THÊM DÒNG XE MỚI</b>
+              <button type="button" disabled={savingVehicleMaster} onClick={() => setShowAddModel(false)} style={{ border: 0, background: 'transparent', color: '#fff', cursor: 'pointer', display: 'flex' }}><XCircle size={18} /></button>
+            </div>
+            <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 5, color: '#475569', fontSize: 11, fontWeight: 600 }}>
+                Hãng xe
+                <input readOnly value={vehicleBrands.find((brand) => brand.ID === newVehicle.DHANGXEID)?.NAME || ''} style={{ height: 35, padding: '0 10px', border: '1px solid #CBD5E1', borderRadius: 5, fontSize: 12, background: '#F8FAFC', color: '#334155' }} />
+              </label>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 5, color: '#475569', fontSize: 11, fontWeight: 600 }}>
+                Tên dòng xe <span style={{ color: '#DC2626' }}>*</span>
+                <input autoFocus maxLength={200} value={newModelName} onChange={(e) => setNewModelName(e.target.value)} placeholder="Ví dụ: Vios, Fortuner, CR-V..." style={{ height: 35, padding: '0 10px', border: '1px solid #CBD5E1', borderRadius: 5, fontSize: 12, outlineColor: '#E65100' }} />
+              </label>
+            </div>
+            <div style={{ padding: '10px 16px', borderTop: '1px solid #E2E8F0', background: '#FAFAFA', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button type="button" disabled={savingVehicleMaster} onClick={() => setShowAddModel(false)} style={{ height: 32, padding: '0 14px', border: '1px solid #CBD5E1', borderRadius: 5, background: '#fff', color: '#475569', cursor: 'pointer' }}>Hủy</button>
+              <button type="submit" disabled={savingVehicleMaster} style={{ height: 32, padding: '0 16px', border: 0, borderRadius: 5, background: savingVehicleMaster ? '#FDBA74' : '#E65100', color: '#fff', fontWeight: 700, cursor: savingVehicleMaster ? 'wait' : 'pointer' }}>{savingVehicleMaster ? 'Đang lưu...' : 'Thêm dòng xe'}</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {previewImage && (
+        <div onMouseDown={(event) => { if (event.target === event.currentTarget) setPreviewImage(null); }} style={{ position: 'fixed', inset: 0, zIndex: 10060, background: 'rgba(2,6,23,.86)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <button type="button" onClick={() => setPreviewImage(null)} style={{ position: 'absolute', top: 16, right: 18, width: 36, height: 36, borderRadius: '50%', border: '1px solid rgba(255,255,255,.45)', background: 'rgba(15,23,42,.7)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><XCircle size={22} /></button>
+          <img src={previewImage} alt="Ảnh trạng thái sửa chữa" style={{ maxWidth: '94vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 7, boxShadow: '0 18px 60px rgba(0,0,0,.5)' }} />
+        </div>
+      )}
+
+      {showPayment && (
+        <div
+          onMouseDown={(event) => { if (event.target === event.currentTarget && !savingProcess) setShowPayment(false); }}
+          style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(15,23,42,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+        >
+          <div style={{ width: 'min(460px, 96vw)', background: '#fff', borderRadius: 8, boxShadow: '0 18px 45px rgba(15,23,42,0.32)', overflow: 'hidden' }}>
+            <div style={{ background: '#E65100', color: '#fff', padding: '11px 15px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontWeight: 800, fontSize: 14 }}>
+                <CheckCircle size={17} /> THANH TOÁN SỬA CHỮA
+              </div>
+              <button type="button" disabled={savingProcess} onClick={() => setShowPayment(false)} style={{ border: 0, background: 'transparent', color: '#fff', cursor: 'pointer', display: 'flex' }}>
+                <XCircle size={18} />
+              </button>
+            </div>
+
+            <div style={{ padding: 16 }}>
+              <div style={{ marginBottom: 12 }}><DocumentNumberField type="HoaDonSuaChua" label="Số hóa đơn sửa chữa"/></div>
+              <div style={{ padding: 12, borderRadius: 6, background: '#FFF7ED', border: '1px solid #FED7AA', marginBottom: 14 }}>
+                <div style={{ fontSize: 11, color: '#64748B' }}>Xe / Phiếu sửa chữa</div>
+                <div style={{ marginTop: 3, fontWeight: 700, color: '#334155' }}>{vehicleInfo.plate} · {vehicleInfo.receiptCode}</div>
+                {chargeSummary}
+                <div style={{ marginTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontWeight: 700, color: '#9A3412' }}>Tổng thanh toán</span>
+                  <span style={{ fontSize: 22, fontWeight: 800, color: '#E65100' }}>{formatMoney(totalAmount)}</span>
+                </div>
+              </div>
+
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 5, color: '#475569', fontSize: 11, fontWeight: 700 }}>
+                Phương thức thanh toán
+                <select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)} disabled={savingProcess} style={{ height: 36, padding: '0 10px', border: '1px solid #CBD5E1', borderRadius: 5, background: '#fff', fontSize: 12 }}>
+                  <option value="cash">Tiền mặt</option>
+                  <option value="transfer">Chuyển khoản</option>
+                </select>
+              </label>
+
+              {chargeConfig.rates.allowDebt!==false && <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 14 }}>
+                <input type="checkbox" checked={allowPaymentDebt} disabled={savingProcess} onChange={event => setAllowPaymentDebt(event.target.checked)} />
+                Khách nợ
+              </label>}
+              {chargeConfig.rates.allowDebt!==false && allowPaymentDebt && <label style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 12 }}>
+                Số tiền thu lần này (đ)
+                <input inputMode="numeric" value={paymentCollected ? Number(paymentCollected).toLocaleString('vi-VN') : ''} placeholder="0" disabled={savingProcess}
+                  onChange={event => setPaymentCollected(event.target.value.replace(/\D/g, ''))} style={{ height: 36, padding: '0 10px', border: '1px solid #CBD5E1', borderRadius: 5 }} />
+                <span>Còn nợ: {formatMoney(Math.max(0, totalAmount - ['TIENMAT', 'CHUYENKHOAN', 'THE'].reduce((sum, key) => sum + Number(savedInvoice?.[key] || 0), 0) - Number(paymentCollected || 0)))}</span>
+              </label>}
+
+              <div style={{ marginTop: 12, padding: '8px 10px', borderRadius: 5, background: '#EFF6FF', color: '#1E40AF', fontSize: 11 }}>
+                Xác nhận thanh toán sẽ chuyển phiếu sang <b>Hoàn thành</b>. {chargeConfig.rates.allowDebt!==false && 'Nếu cho khách nợ, số tiền còn thiếu được ghi nhận công nợ. '} {chargeConfig.rates.requireBill!==false && 'Bắt buộc in bill sau khi lưu.'}
+              </div>
+            </div>
+
+            <div style={{ padding: '10px 15px', background: '#FAFAFA', borderTop: '1px solid #E2E8F0', display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 8 }}>
+
+              <button type="button" disabled={savingProcess} onClick={() => setShowPayment(false)} style={{ height: 34, padding: '0 14px', background: '#fff', border: '1px solid #CBD5E1', borderRadius: 5, color: '#475569', fontWeight: 600, cursor: 'pointer' }}>
+                Hủy
+              </button>
+              <button type="button" disabled={savingProcess || !can('PAYMENTS',4)} onClick={handlePayment} style={{ height: 34, padding: '0 16px', background: savingProcess ? '#FDBA74' : '#E65100', color: '#fff', border: 0, borderRadius: 5, fontWeight: 700, cursor: savingProcess ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <CheckCircle size={14} /> {savingProcess ? 'Đang thanh toán...' : chargeConfig.rates.requireBill!==false ? 'Xác nhận và in bill' : 'Xác nhận thanh toán'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showSupplements && repairFlow.repairId && <RepairSupplements key={repairFlow.repairId} repairId={repairFlow.repairId} state={repairFlow.workflowState} catalog={services} onClose={() => setShowSupplements(false)} onChanged={async () => {
+        const order = await repairOrders.get(repairFlow.repairId);
+        setSavedDetails(order.details || []);
+        setSavedOrder(order);
+      }} />}
+
+      {showRepairConfirmation && (
+        <div
+          onMouseDown={(event) => { if (event.target === event.currentTarget && !savingProcess) setShowRepairConfirmation(false); }}
+          style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(15,23,42,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+        >
+          <div style={{ width: 'min(760px, 96vw)', maxHeight: '90vh', background: '#fff', borderRadius: 8, boxShadow: '0 18px 45px rgba(15,23,42,0.32)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ background: '#E65100', color: '#fff', padding: '11px 15px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontWeight: 800, fontSize: 14 }}>
+                <CheckSquare size={17} /> {Number(repairFlow.workflowState) >= 2 ? 'PHÂN CÔNG & HOA HỒNG' : 'XÁC NHẬN SỬA CHỮA'}
+              </div>
+              <button type="button" disabled={savingProcess} onClick={() => setShowRepairConfirmation(false)} style={{ border: 0, background: 'transparent', color: '#fff', cursor: 'pointer', display: 'flex' }}>
+                <XCircle size={18} />
+              </button>
+            </div>
+
+            <div style={{ padding: 15, overflowY: 'auto' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 8, background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: 6, padding: 10, marginBottom: 12, fontSize: 11.5 }}>
+                <div><span style={{ color: '#64748B' }}>Số phiếu:</span> <b>{vehicleInfo.receiptCode}</b></div>
+                <div><span style={{ color: '#64748B' }}>Biển số:</span> <b style={{ color: '#E65100' }}>{vehicleInfo.plate}</b></div>
+                <div><span style={{ color: '#64748B' }}>Khách hàng:</span> <b>{vehicleInfo.customer}</b></div>
+                <div><span style={{ color: '#64748B' }}>Loại xe:</span> <b>{vehicleInfo.carModel}</b></div>
+                <div><span style={{ color: '#64748B' }}>ODO:</span> <b>{vehicleInfo.currentKm} km</b></div>
+                <div><span style={{ color: '#64748B' }}>Ngày tiếp nhận:</span> <b>{vehicleInfo.date}</b></div>
+              </div>
+
+              <div style={{ border: '1px solid #E2E8F0', borderRadius: 6, overflow: 'hidden' }}>
+                <div style={{ padding: '7px 10px', background: '#F8FAFC', fontWeight: 700, color: '#334155', borderBottom: '1px solid #E2E8F0' }}>
+                  Hạng mục khách hàng xác nhận ({acceptedServices.length}/{selectedServices.length})
+                </div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                  <thead><tr style={{ background: '#FFE0B2', color: '#BF360C' }}>
+                    <th style={{ padding: 6, textAlign: 'center', width: 38 }}>STT</th>
+                    <th style={{ padding: 6, textAlign: 'left' }}>Dịch vụ / Phụ tùng</th>
+                    <th style={{ padding: 6, textAlign: 'center', width: 70 }}>SL</th>
+                    <th style={{ padding: 6, textAlign: 'right', width: 110 }}>Đơn giá</th>
+                    <th style={{ padding: 6, textAlign: 'right', width: 120 }}>Thành tiền</th>
+                  </tr></thead>
+                  <tbody>
+                    {selectedServices.map((item, index) => (
+                      <tr key={item.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                        <td style={{ padding: 6, textAlign: 'center', color: '#64748B' }}>{index + 1}</td>
+                        <td style={{ padding: 6 }}>
+                          {Number(repairFlow.workflowState) < 2 && <input type="checkbox" aria-label={`Khách đồng ý sửa ${item.name}`} checked={!declinedItemIds.includes(item.id)} disabled={savingProcess} onChange={event => setDeclinedItemIds(current => event.target.checked ? current.filter(id => id !== item.id) : [...current,item.id])} style={{width:15,height:15,display:'inline-block',verticalAlign:'middle',marginRight:8,accentColor:'#E65100'}} />}
+                          <b style={{textDecoration:declinedItemIds.includes(item.id)?'line-through':'none',color:declinedItemIds.includes(item.id)?'#94A3B8':undefined}}>{item.name}</b><div style={{ color: '#64748B', fontSize: 9.5 }}>{declinedItemIds.includes(item.id)?'Khách không chọn':`${item.group} • ${item.note}`}</div></td>
+                        <td style={{ padding: 6, textAlign: 'center' }}>{item.quantity || 1} {item.unit}</td>
+                        <td style={{ padding: 6, textAlign: 'right' }}>{formatMoney(item.price)}</td>
+                        <td style={{ padding: 6, textAlign: 'right', fontWeight: 700 }}>{formatMoney(item.amount ?? item.price * (item.quantity || 1))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div style={{ padding: '9px 12px', background: '#FFF3E0', display: 'flex', justifyContent: 'space-between', color: '#BF360C', fontWeight: 800, fontSize: 13 }}>
+                  <span>TỔNG KHÁCH ĐỒNG Ý SỬA</span><span>{formatMoney(confirmationPreview.totals?.total || 0)}</span>
+                </div>
+                {confirmationPreview.totals && <ChargeSummary subtotal={confirmationPreview.totals.subtotal} discount={confirmationPreview.totals.discount} totals={confirmationPreview.totals} rates={chargeRates} />}
+                {confirmationPreview.error && <div role="alert" style={{padding:10,color:'#B91C1C'}}>{confirmationPreview.error}</div>}
+              </div>
+
+              <RepairAssignmentPanel repairId={repairFlow.repairId} acceptedTotals={Number(repairFlow.workflowState)<2?confirmationPreview.totals:null} onChange={setRepairAssignment} disabled={savingProcess} readOnly={Number(repairFlow.workflowState) >= 2} />
+              {Number(repairFlow.workflowState) < 2 && <div style={{ marginTop: 10, padding: '8px 10px', borderRadius: 5, background: '#EFF6FF', color: '#1E40AF', fontSize: 11 }}>
+                Bỏ dấu chọn những hạng mục khách không đồng ý. Báo giá ban đầu được giữ nguyên; lệnh sửa chữa, tiền thanh toán và hoa hồng chỉ tính các hạng mục khách chọn khi <b>Xác nhận sửa chữa</b>.
+              </div>}
+            </div>
+
+            <div style={{ padding: '10px 15px', background: '#FAFAFA', borderTop: '1px solid #E2E8F0', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button type="button" disabled={savingProcess} onClick={() => setShowRepairConfirmation(false)} style={{ marginRight: 'auto', height: 34, padding: '0 14px', background: '#fff', border: '1px solid #CBD5E1', borderRadius: 5, color: '#475569', fontWeight: 600, cursor: 'pointer' }}>
+                {Number(repairFlow.workflowState) >= 2 ? 'Đóng' : 'Chưa xác nhận'}
+              </button>
+              <button type="button" disabled={savingProcess || !repairFlow.repairId || !can('REPAIR',17)} title="In chứng từ đã lưu" onClick={() => handlePrintRepairDocument()} style={{ height: 34, padding: '0 14px', background: '#fff', border: '1px solid #CBD5E1', borderRadius: 5, color: '#E65100', fontWeight: 600, cursor: savingProcess || !repairFlow.repairId ? 'default' : 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Printer size={14} /> {Number(repairFlow.workflowState)<2?'In báo giá':'In lệnh sửa chữa thực tế'}
+              </button>
+              {Number(repairFlow.workflowState) < 2 && <button type="button" disabled={savingProcess || !repairAssignment.valid || !can('ASSIGN_REPAIR',4) || (Number(repairFlow.workflowState) === 0 && !can('APPROVE_QUOTE',4))} onClick={handleConfirmRepair} style={{ height: 34, padding: '0 16px', background: savingProcess || !repairAssignment.valid ? '#FDBA74' : '#E65100', color: '#fff', border: 0, borderRadius: 5, fontWeight: 700, cursor: savingProcess ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <CheckCircle size={14} /> {savingProcess ? 'Đang xác nhận...' : 'Xác nhận sửa chữa'}
+              </button>}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

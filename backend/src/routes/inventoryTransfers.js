@@ -1,0 +1,3 @@
+const router=require('express').Router(),s=require('../services/inventoryTransfers');
+const wrap=f=>async(req,res,next)=>{try{if(!require('../branchScope').enabled())return res.status(404).json({error:'Chưa bật quản lý chi nhánh.'});res.json(await f(req));}catch(e){next(e);}};
+router.get('/options',wrap(()=>s.options()));router.get('/',wrap(async()=>({data:await s.list()})));router.get('/:id',wrap(async r=>({data:await s.detail(r.params.id)})));router.post('/',wrap(r=>s.create(r.body,r)));router.post('/:id/send',wrap(r=>s.send(r.params.id)));router.post('/:id/receive',wrap(r=>s.receive(r.params.id,r.body)));router.post('/:id/cancel',wrap(r=>s.cancel(r.params.id)));module.exports=router;

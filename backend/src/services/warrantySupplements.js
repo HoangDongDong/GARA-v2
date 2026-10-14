@@ -1,0 +1,46 @@
+const db=require('../db'),scope=require('../branchScope'),branchSql=require('../branchSql');
+const fail=(message,status=400)=>Object.assign(Error(message),{status});
+const schemas=new Map();
+async function ensure(){const key=require('../tenancy').key();if(schemas.has(key))return schemas.get(key);const promise=(async()=>{const [exists]=await db.query("SELECT RDB$RELATION_NAME FROM RDB$RELATIONS WHERE RDB$RELATION_NAME='TBAOHANHPHATSINH'");if(!exists)await db.execute(`CREATE TABLE TBAOHANHPHATSINH (ID VARCHAR(36) NOT NULL PRIMARY KEY,TBAOHANHXULYID VARCHAR(36) NOT NULL REFERENCES TBAOHANHXULY(ID),STATE VARCHAR(12) NOT NULL,LYDO VARCHAR(1000) CHARACTER SET UTF8,DKHOHANGID VARCHAR(36),ITEMS VARCHAR(8191) CHARACTER SET UTF8,TONGCONG DECIMAL(18,2),USERCREATEDID VARCHAR(36),USERAPPROVEDID VARCHAR(36),TIMECREATED TIMESTAMP DEFAULT CURRENT_TIMESTAMP,TIMEAPPROVED TIMESTAMP)`);const cols=await db.query("SELECT TRIM(RDB$FIELD_NAME) AS NAME FROM RDB$RELATION_FIELDS WHERE RDB$RELATION_NAME='TBAOHANHPHATSINH'");
+for(const [name,type]of [['NGUOIXACNHAN','VARCHAR(200)'],['BANGCHUNG','VARCHAR(2000)']])if(!cols.some(c=>c.NAME===name))await db.execute(`ALTER TABLE TBAOHANHPHATSINH ADD ${name} ${type} CHARACTER SET UTF8`);})();schemas.set(key,promise);try{await promise;}catch(error){schemas.delete(key);throw error;}}
+function validate(body){if(!String(body.reason||'').trim()||String(body.reason).length>1000)throw fail('Nhập lý do phát sinh (tối đa 1.000 ký tự).');if(!Array.isArray(body.items)||!body.items.length||body.items.length>30)throw fail('Chọn từ 1 đến 30 hạng mục phát sinh.');const seen=new Set();for(const item of body.items){const key=item.kind+item.sourceId;if(!['part','service'].includes(item.kind)||!scope.validId(item.sourceId)||!Number.isFinite(Number(item.quantity))||Number(item.quantity)<=0||Number(item.quantity)>10000||seen.has(key))throw fail('Hạng mục, số lượng phát sinh không hợp lệ hoặc bị trùng.');seen.add(key);}}
+async function active(id,q,lock){const job=await require('./warrantyJobs').get(id,q,lock);if(Number(job.TRANGTHAI)!==2)throw fail('Chỉ lập và duyệt phát sinh khi xe đang bảo hành.',409);if(scope.enabled()&&scope.current()?.branchId&&job.DCUAHANGID!==scope.current().branchId)throw fail('Chọn đúng chi nhánh của phiếu.');return job;}
+async function list(id){await require('./warrantyJobs').ensure();await require('./warrantyJobs').get(id);const rows=await db.query('SELECT * FROM TBAOHANHPHATSINH WHERE TBAOHANHXULYID=? ORDER BY TIMECREATED DESC',[id]);return rows.map(row=>({...row,items:JSON.parse(row.ITEMS||'[]')}));}
+async function create(id,body,user){await require('./warrantyJobs').ensure();validate(body);if(body.state&&!['draft','pending'].includes(body.state))throw fail('Trạng thái đề xuất không hợp lệ.');return db.transaction(async(q,x,uuid)=>{
+ const job=await active(id,q,true),lines=[];
+ for(const item of body.items){const part=item.kind==='part';const [row]=await q(`SELECT ID,NAME,${part?'GIABAN':'GIA'} AS PRICE FROM ${part?'DMATHANG':'DDICHVU'} WHERE ID=? AND STATUS=1`,[item.sourceId]);if(!row)throw fail('Hạng mục không còn hoạt động.');const qty=Number(item.quantity),price=Number(row.PRICE||0);lines.push({kind:item.kind,sourceId:item.sourceId,name:row.NAME,unit:part?'Cái':'Lần',quantity:qty,price,amount:Math.round(qty*price*100)/100});}
+ for(const line of lines){const policy=require('./pricingPolicy'),catalog=await policy.item(q,line.kind==='service'?1:0,line.sourceId);line.taxRate=policy.taxPolicy(catalog,{taxRate:Number(job.TILETHUE||0)}).taxRate;const [hh]=await q(`SELECT HHKIEU,HHGIATRI FROM ${line.kind==='part'?'DMATHANG':'DDICHVU'} WHERE ID=?`,[line.sourceId]);line.hhKind=hh.HHKIEU||0;line.hhValue=hh.HHGIATRI||0;}
+ const warehouseId=body.warehouseId||job.DKHOHANGID;
+ if(lines.some(l=>l.kind==='part')){const [warehouse]=await q(`SELECT ID,DCUAHANGID FROM ${branchSql.table('DKHOHANG')} WHERE ID=? AND STATUS=1`,[warehouseId]);if(!warehouse||scope.enabled()&&warehouse.DCUAHANGID!==job.DCUAHANGID)throw fail('Chọn kho xuất thuộc chi nhánh của phiếu.');}
+ const content=JSON.stringify(lines);if(content.length>7000)throw fail('Đề xuất quá dài; chia thành các đề xuất nhỏ hơn.');
+ const proposalId=uuid(),total=lines.reduce((s,l)=>s+l.amount,0);await x("INSERT INTO TBAOHANHPHATSINH (ID,TBAOHANHXULYID,STATE,LYDO,DKHOHANGID,ITEMS,TONGCONG,USERCREATEDID) VALUES (?,?,?,?,?,?,?,?)",[proposalId,id,body.state||'pending',String(body.reason).trim(),warehouseId||null,content,total,user.ID]);return {id:proposalId,total};
+ });}
+async function decide(jobId,id,accepted,user,metadata){await require('./warrantyJobs').ensure();return db.transaction(async(q,x,uuid)=>{
+ const job=await active(jobId,q,true);const [proposal]=await q('SELECT * FROM TBAOHANHPHATSINH WHERE ID=? AND TBAOHANHXULYID=? WITH LOCK',[id,jobId]);if(!proposal||proposal.STATE!=='pending')throw fail('Đề xuất đã được xử lý hoặc không tồn tại.',409);
+ const lines=JSON.parse(proposal.ITEMS);if(!Array.isArray(accepted)||accepted.some(i=>!Number.isInteger(i)||i<0||i>=lines.length)||new Set(accepted).size!==accepted.length)throw fail('Danh sách hạng mục duyệt không hợp lệ.');
+ const chosen=lines.filter((_,i)=>accepted.includes(i)),parts=chosen.filter(l=>l.kind==='part').map(l=>({DMATHANGID:l.sourceId,DKHOHANGID:proposal.DKHOHANGID,SOLUONG:l.quantity}));
+ if(parts.length){const [warehouse]=await q(`SELECT ID,DCUAHANGID FROM ${branchSql.table('DKHOHANG')} WHERE ID=? AND STATUS=1`,[proposal.DKHOHANGID]);if(!warehouse||scope.enabled()&&warehouse.DCUAHANGID!==job.DCUAHANGID)throw fail('Kho xuất không còn hoạt động hoặc không thuộc chi nhánh của phiếu.');}
+ const stock=require('./stock');await stock.lock(x,parts.map(l=>l.DMATHANGID));await stock.requireAvailable(q,parts);
+ for(const [i,l]of chosen.entries()){
+  const detailId=uuid();let stockId=null;if(l.kind==='part'){stockId=uuid();const [part]=await q('SELECT ID,GIANHAP FROM DMATHANG WHERE ID=? AND STATUS=1',[l.sourceId]);if(!part)throw fail('Phụ tùng không còn hoạt động.');await x('INSERT INTO TXUATPHUTUNG (ID,DXEID,DMATHANGID,DKHOHANGID,SOLUONG,DONGIA,THANHTIEN,GIAVON,BAOHANH,NGAYXUAT,SLHOAN,NOTE,STATUS,USERCREATEDID,TIMECREATED) VALUES (?,?,?,?,?,?,?,?,0,CURRENT_TIMESTAMP,0,?,1,?,CURRENT_TIMESTAMP)',[stockId,job.DXEID,l.sourceId,proposal.DKHOHANGID,l.quantity,l.price,l.amount,Number(part.GIANHAP||0),'Phát sinh bảo hành '+job.NAME,user.ID]);}
+  else if(!(await q('SELECT ID FROM DDICHVU WHERE ID=? AND STATUS=1',[l.sourceId])).length)throw fail('Dịch vụ không còn hoạt động.');
+  const policy=require('./pricingPolicy'),catalog=await policy.item(q,l.kind==='service'?1:0,l.sourceId);const [hh]=await q(`SELECT HHKIEU,HHGIATRI FROM ${l.kind==='part'?'DMATHANG':'DDICHVU'} WHERE ID=?`,[l.sourceId]);
+  await x('INSERT INTO TBAOHANHXULYCT (ID,TBAOHANHXULYID,KIND,SOURCEID,DMATHANGID,DDICHVUID,NAME,UNITNAME,SOLUONG,DONGIA,THANHTIEN,NOTE,XUATID,SORTORDER,TILETHUE,HHKIEU,HHGIATRI) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',[detailId,jobId,l.kind,l.sourceId,l.kind==='part'?l.sourceId:null,l.kind==='service'?l.sourceId:null,String(l.name).slice(0,255),l.unit,l.quantity,l.price,l.amount,'Phát sinh: '+proposal.LYDO,stockId,job.items.length+i,l.taxRate??policy.taxPolicy(catalog,{taxRate:Number(job.TILETHUE||0)}).taxRate,l.hhKind??hh.HHKIEU??0,l.hhValue??hh.HHGIATRI??0]);
+ }
+ const state=!chosen.length?'rejected':chosen.length===lines.length?'approved':'partial';await x('UPDATE TBAOHANHPHATSINH SET STATE=?,ITEMS=?,NGUOIXACNHAN=?,BANGCHUNG=?,USERAPPROVEDID=?,TIMEAPPROVED=CURRENT_TIMESTAMP WHERE ID=?',[state,JSON.stringify(lines.map((l,i)=>({...l,accepted:accepted.includes(i)}))),metadata?.customer||null,metadata?.evidence||null,user.ID,id]);const total=chosen.reduce((s,l)=>s+l.amount,0);await x('UPDATE TBAOHANHXULY SET TONGCONG=TONGCONG+?,TIMEMODIFIED=CURRENT_TIMESTAMP WHERE ID=?',[total,jobId]);const updated=await require('./warrantyJobs').get(jobId,q);await require('./warrantyAccounting').refresh(updated,q,x);await require('./warrantyAccounting').additional(await require('./warrantyJobs').get(jobId,q),q,x);return {id,state,amount:total};
+ });}
+async function action(jobId,id,body,user){
+ if(body.action==='decide'){
+  const customer=String(body.NGUOIXACNHAN||'').trim(),evidence=String(body.BANGCHUNG||'').trim();
+  if(!customer||customer.length>200||!evidence||evidence.length>2000)throw fail('Nhập tên khách xác nhận và bằng chứng/nội dung xác nhận.');
+  return decide(jobId,id,body.accepted,user,{customer,evidence});
+ }
+ if(!['submit','cancel'].includes(body.action))throw fail('Thao tác đề xuất không hợp lệ.');
+ await require('./warrantyJobs').ensure();return db.transaction(async(q,x)=>{
+  await active(jobId,q,true);const [proposal]=await q('SELECT * FROM TBAOHANHPHATSINH WHERE ID=? AND TBAOHANHXULYID=? WITH LOCK',[id,jobId]);
+  if(!proposal||!['draft','pending'].includes(proposal.STATE)||body.action==='submit'&&proposal.STATE!=='draft')throw fail('Đề xuất đã được xử lý hoặc không tồn tại.',409);
+  const state=body.action==='submit'?'pending':'cancelled';await x('UPDATE TBAOHANHPHATSINH SET STATE=?,USERAPPROVEDID=?,TIMEAPPROVED=CURRENT_TIMESTAMP WHERE ID=?',[state,user.ID,id]);return {id,state};
+ });
+}
+module.exports={ensure,validate,list,create,decide,action};
+

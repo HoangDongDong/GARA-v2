@@ -1,0 +1,197 @@
+const branchSql=require('../branchSql');
+const express = require('express');
+const router = express.Router();
+const db = require('../db.js');
+router.get('/charge-rates', async (req, res) => {
+  try { res.json({ data: await require('../services/defaultChargeRates.js').load() }); }
+  catch (error) { res.status(error.status || 500).json({ error: error.message }); }
+});
+
+const PART_IMAGE_MAX_BYTES = 3 * 1024 * 1024;
+
+function parsePartImage(value) {
+  const match = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=\r\n]+)$/i.exec(String(value || ''));
+  if (!match) return null;
+  const mime = match[1].toLowerCase();
+  const buffer = Buffer.from(match[2].replace(/\s/g, ''), 'base64');
+  if (!buffer.length || buffer.length > PART_IMAGE_MAX_BYTES) return null;
+  return { mime, dataUrl: `data:${mime};base64,${buffer.toString('base64')}` };
+}
+
+/**
+ * GARAGE.FDB - DMATHANG:
+ *   NAME, CODE, BARCODE, MAOEM, GIANHAP, GIABAN, GIABAN2, GIABAN3, GIABAN4,
+ *   DHANGSANXUATID, DVITRIKHOID, DNHOMMATHANGID, DDONVITINHID, BAOHANH
+ *   TONTOITHIEU, TONTOIDA, MASANCO
+ *
+ *   TAMKHOA=1 ngung ban. STATUS=1 con su dung.
+ */
+
+// Lay ton kho tu DNHAPKHOCHITIET (nhap) - DXUATPHUTUNG + TDONHANGCHITIET (xuat)
+const TONKHO_SQL = `SELECT S.DMATHANGID, SUM(CASE WHEN S.QUANTITY>0 THEN S.QUANTITY ELSE 0 END) AS SL_NHAP, -SUM(CASE WHEN S.QUANTITY<0 THEN S.QUANTITY ELSE 0 END) AS SL_XUAT FROM (${require('../services/stock.js').movements}) S GROUP BY S.DMATHANGID`;
+
+// GET /api/parts
+router.get('/', async (req, res) => {
+  try {
+    const rows = await db.query(
+      `SELECT M.ID, M.NAME, M.CODE, M.BARCODE, M.MAOEM, M.GIANHAP, M.GIABAN,
+              M.THUESUATRIENG, M.HHKIEU, M.HHGIATRI, NH.THUESUATRIENG AS THUENHOM, M.GIABAN2, M.GIABAN3, M.TONTOITHIEU, M.TONTOIDA,
+              M.DHANGSANXUATID, HSX.NAME  AS HANG,
+              M.DVITRIKHOID,    VT.NAME  AS VITRI,
+              M.DNHOMMATHANGID, NH.NAME  AS NHOM,
+              M.DDONVITINHID, DVT.NAME AS DONVI,
+              M.BAOHANH, M.STATUS, M.TAMKHOA, M.MASANCO,
+              CASE WHEN M.ANH IS NULL THEN 0 ELSE 1 END AS CO_ANH
+         FROM DMATHANG M
+         LEFT JOIN DHANGSANXUAT  HSX ON HSX.ID = M.DHANGSANXUATID
+         LEFT JOIN ${branchSql.table('DVITRIKHO')}      VT  ON VT.ID  = M.DVITRIKHOID
+         LEFT JOIN DNHOMMATHANG   NH  ON NH.ID  = M.DNHOMMATHANGID AND NH.STATUS=1
+         LEFT JOIN DDONVITINH     DVT ON DVT.ID = M.DDONVITINHID
+        WHERE M.STATUS = 1
+     ORDER BY M.TIMECREATED DESC`
+    );
+
+    // tinh ton kho
+    const ton = await db.query(TONKHO_SQL);
+    const tonMap = {};
+    ton.forEach((t) => { tonMap[t.DMATHANGID] = (t.SL_NHAP || 0) - (t.SL_XUAT || 0); });
+
+    res.json({
+      data: rows.map((r) => ({
+        ...r,
+        TON_KHO: tonMap[r.ID] || 0,
+      })),
+    });
+  } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+});
+
+// GET /api/parts/meta - dropdown
+router.get('/meta/options', async (req, res) => {
+  try {
+    const hangsx = await db.query(`SELECT ID, NAME FROM DHANGSANXUAT WHERE STATUS=1`);
+    const vitri  = await db.query(`SELECT ID, NAME FROM ${branchSql.table('DVITRIKHO')} WHERE STATUS=1`);
+    const nhom   = await db.query(`SELECT ID, NAME, THUESUATRIENG FROM DNHOMMATHANG WHERE STATUS=1`);
+    const dvt    = await db.query(`SELECT ID, NAME FROM DDONVITINH WHERE STATUS=1`);
+    res.json({ data: { hangsx, vitri, nhom, dvt } });
+  } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+});
+
+// GET /api/parts/:id/image - ảnh mặt hàng lưu trực tiếp trong DMATHANG.ANH
+router.get('/:id/image', async (req, res) => {
+  try {
+    const blob = await db.queryBlob(
+      'SELECT ANH FROM DMATHANG WHERE ID=? AND STATUS=1',
+      [req.params.id],
+      'ANH'
+    );
+    if (!blob) return res.status(404).json({ error: 'Mat hang chua co anh' });
+    const image = parsePartImage(blob.toString('utf8'));
+    if (!image) return res.status(422).json({ error: 'Du lieu anh mat hang khong hop le' });
+    res.set('Content-Type', image.mime);
+    res.set('Cache-Control', 'private, max-age=3600');
+    res.send(Buffer.from(image.dataUrl.split(',')[1], 'base64'));
+  } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+});
+
+router.post('/', async (req, res) => {
+  try {
+    require("../services/pricingPolicy.js").validateMaster(req.body);
+    require('../services/repairCommissions.js').validateConfig(req.body);
+    const {
+      NAME, CODE, BARCODE, MAOEM, GIANHAP, GIABAN, GIABAN2, GIABAN3,
+      DHANGSANXUATID, DVITRIKHOID, DNHOMMATHANGID, DDONVITINHID,
+      BAOHANH, TONTOITHIEU, TONTOIDA, MASANCO, ANH,
+    } = req.body;
+    const name = String(NAME || '').trim();
+    let code = String(CODE || '').trim();
+    const automatic = !code || req.body.AUTO_CODE === code;
+    if (!name) return res.status(400).json({ error: 'Ten mat hang khong duoc trong' });
+    const actor = String(req.get('X-User') || 'SYSTEM').trim() || 'SYSTEM';
+    const id = db.uuidv4();
+    const partImage = ANH ? parsePartImage(ANH) : null;
+    if (ANH && !partImage) {
+      return res.status(400).json({ error: 'Anh mat hang khong hop le hoac vuot qua 3 MB' });
+    }
+    await db.transaction(async (query, execute) => {
+      if (automatic) code = await require('../services/documentNumbers.js').nextInTransaction('MatHang', query, execute);
+      else if ((await query('SELECT FIRST 1 ID FROM DMATHANG WHERE UPPER(TRIM(CODE))=?', [code.toUpperCase()])).length) {
+        throw Object.assign(new Error('Mã mặt hàng đã tồn tại.'), {status:409});
+      }
+    await execute(
+      `INSERT INTO DMATHANG
+         (ID, NAME, CODE, BARCODE, MAOEM, GIANHAP, GIABAN, GIABAN2, GIABAN3,
+          DHANGSANXUATID, DVITRIKHOID, DNHOMMATHANGID, DDONVITINHID,
+          BAOHANH, TONTOITHIEU, TONTOIDA, MASANCO, ANH, THUESUATRIENG, HHKIEU, HHGIATRI,
+          STATUS, TAMKHOA, USERCREATEDID, TIMECREATED)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?, CURRENT_TIMESTAMP)`,
+      [
+        id, name, code, code, MAOEM,
+        GIANHAP || 0, GIABAN || 0, GIABAN2 || 0, GIABAN3 || 0,
+        DHANGSANXUATID || null, DVITRIKHOID || null,
+        DNHOMMATHANGID || null, DDONVITINHID || null,
+        BAOHANH, TONTOITHIEU || 0, TONTOIDA || 0, MASANCO,
+        partImage ? Buffer.from(partImage.dataUrl, 'utf8') : null, req.body.THUESUATRIENG ?? null,
+        req.body.HHKIEU || 0, req.body.HHGIATRI || 0,
+        actor,
+      ]
+    );
+    });
+    res.json({ ok: true, id, code });
+  } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+});
+
+router.put('/:id', async (req, res) => {
+  try {
+    require("../services/pricingPolicy.js").validateMaster(req.body);
+    require('../services/repairCommissions.js').validateConfig(req.body);
+    const {
+      NAME, CODE, BARCODE, MAOEM, GIANHAP, GIABAN, GIABAN2, GIABAN3,
+      DHANGSANXUATID, DVITRIKHOID, DNHOMMATHANGID, DDONVITINHID,
+      BAOHANH, TONTOITHIEU, TONTOIDA, MASANCO, ANH,
+    } = req.body;
+    const code = String(CODE || '').trim();
+    if (!code) return res.status(400).json({error:'Mã mặt hàng không được để trống.'});
+    if ((await db.query('SELECT FIRST 1 ID FROM DMATHANG WHERE UPPER(TRIM(CODE))=? AND ID<>?', [code.toUpperCase(),req.params.id])).length) return res.status(409).json({error:'Mã mặt hàng đã tồn tại.'});
+    const partImage = ANH !== undefined && ANH ? parsePartImage(ANH) : null;
+    if (ANH && !partImage) {
+      return res.status(400).json({ error: 'Anh mat hang khong hop le hoac vuot qua 3 MB' });
+    }
+    const imageUpdateSql = ANH === undefined ? '' : ', ANH=?';
+    const taxUpdateSql = 'THUESUATRIENG' in req.body ? ', THUESUATRIENG=?' : '';
+    const commissionUpdateSql = 'HHKIEU' in req.body ? ', HHKIEU=?, HHGIATRI=?' : '';
+    await db.execute(
+      `UPDATE DMATHANG
+          SET NAME=?, CODE=?, BARCODE=?, MAOEM=?, GIANHAP=COALESCE(?,GIANHAP), GIABAN=?,
+              GIABAN2=?, GIABAN3=?, DHANGSANXUATID=?, DVITRIKHOID=?,
+              DNHOMMATHANGID=?, DDONVITINHID=?, BAOHANH=?,
+              TONTOITHIEU=?, TONTOIDA=?, MASANCO=?${imageUpdateSql}${taxUpdateSql}${commissionUpdateSql},
+              USERMODIFIEDID=?, TIMEMODIFIED=CURRENT_TIMESTAMP
+        WHERE ID=?`,
+      [
+        NAME, code, code, MAOEM,
+        GIANHAP === undefined ? null : GIANHAP || 0, GIABAN || 0, GIABAN2 || 0, GIABAN3 || 0,
+        DHANGSANXUATID || null, DVITRIKHOID || null,
+        DNHOMMATHANGID || null, DDONVITINHID || null,
+        BAOHANH, TONTOITHIEU || 0, TONTOIDA || 0, MASANCO,
+        ...(ANH === undefined ? [] : [partImage ? Buffer.from(partImage.dataUrl, 'utf8') : null]),
+        ...('THUESUATRIENG' in req.body ? [req.body.THUESUATRIENG] : []),
+        ...('HHKIEU' in req.body ? [req.body.HHKIEU, req.body.HHGIATRI] : []),
+        req.accessUser?.ID || 'SYSTEM', req.params.id,
+      ]
+    );
+    res.json({ ok: true });
+  } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+});
+
+router.delete('/:id', async (req, res) => {
+  try {
+    await db.execute(
+      `UPDATE DMATHANG SET STATUS=0, USERMODIFIEDID=?, TIMEMODIFIED=CURRENT_TIMESTAMP
+       WHERE ID=?`,
+      [req.accessUser?.ID || 'SYSTEM',req.params.id]
+    );
+    res.json({ ok: true });
+  } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+});
+
+module.exports = router;

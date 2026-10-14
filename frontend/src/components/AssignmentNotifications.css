@@ -1,0 +1,12 @@
+.assignment-notifications{position:relative;flex-shrink:0}
+.assignment-bell{position:relative;background:transparent;border:0;color:inherit;padding:9px;cursor:pointer;display:flex;align-items:center}
+.assignment-bell>span{position:absolute;right:0;top:0;background:#dc2626;border-radius:12px;color:white;font-size:10px;padding:2px 4px;min-width:16px;text-align:center}
+.assignment-inbox{position:absolute;right:0;top:calc(100% + 10px);width:min(370px,calc(100vw - 24px));background:white;color:#1e293b;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 8px 28px #0003;z-index:10050;overflow:hidden;text-align:left}
+.assignment-inbox-heading{display:flex;justify-content:space-between;align-items:center;padding:12px;border-bottom:1px solid #e2e8f0}
+.assignment-inbox-heading button{background:none;border:0;cursor:pointer;color:#64748b}
+.assignment-inbox p{padding:12px;font-size:13px;margin:0}
+.assignment-read-all{background:transparent;border:0;color:#ea580c;padding:10px 12px;cursor:pointer}
+.assignment-inbox-list{max-height:min(440px,60vh);overflow-y:auto}
+.assignment-message{display:flex;flex-direction:column;gap:5px;padding:12px;width:100%;background:white;border:0;border-bottom:1px solid #e2e8f0;cursor:pointer;color:#334155;text-align:left;white-space:normal}
+.assignment-message.unread{background:#fff7ed;border-left:3px solid #f97316}
+.assignment-message strong{font-size:13px}.assignment-message span{font-size:12px}.assignment-message small{color:#64748b;font-size:11px}
